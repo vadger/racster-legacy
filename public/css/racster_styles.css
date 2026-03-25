@@ -1,0 +1,1099 @@
+/* Custom stylesheet for Racster > green - 51bc1b | yellow - ffd116 */
+
+a:not(.btn):not(.nav-link):not(.dropdown-item):not(.ui-state-default) {
+	color: #00bf63;
+}
+
+a:not(.btn):not(.nav-link):not(.dropdown-item):not(.ui-state-default):hover,
+a:not(.btn):not(.nav-link):not(.dropdown-item):not(.ui-state-default):active,
+a:not(.btn):not(.nav-link):not(.dropdown-item):not(.ui-state-default):focus {
+	color: rgba(0,191,99,0.8) !important;
+	text-decoration: none;
+}
+
+input:disabled,
+textarea:disabled,
+input[readonly] {
+	box-shadow: none;
+	border: 1px solid #ccc;
+	background-color: #f1f1f1 !important;
+	color: #999;
+}
+
+input[readonly]:focus {
+	box-shadow: none;
+}
+
+input:disabled + label,
+input:disabled + label:before {
+	color: #ccc !important;
+}
+
+.form-check {
+	position: relative;
+}
+
+.form-check input {
+	position: absolute;
+	top: 50%;
+	left: -99999px;
+	transform: translate(0, -50%);
+	margin: 0;
+}
+
+.form-check label {
+	position: relative;
+	display: block;
+	margin-left: 20px;
+	padding: 3px 0;
+	cursor: pointer;
+}
+
+.form-check label:before {
+	position: absolute;
+	top: 50%;
+	left: -20px;
+	transform: translate(0, -50%);
+	display: inline-block;
+	content: "\f0c8";
+	font-family: 'Font Awesome 5 Free';
+	font-size: 18px;
+	color: #999;
+}
+
+.form-check input.is-invalid + label:before {
+	color: var(--bs-form-invalid-color);
+}
+
+.form-check input:checked + label:before {
+	content: "\f14a";
+}
+
+.form-check input:focus + label:before {
+	color: #00bf63;
+}
+
+.form-radio {
+	position: relative;
+}
+
+.form-radio input {
+	position: absolute;
+	top: 50%;
+	left: -99999px;
+	transform: translate(0, -50%);
+	margin: 0;
+}
+
+.form-radio label {
+	position: relative;
+	display: inline-block;
+	margin-left: 20px;
+	padding: 3px 5px;
+	cursor: pointer;
+}
+
+.form-radio label:before {
+	position: absolute;
+	top: 50%;
+	left: -20px;
+	transform: translate(0, -50%);
+	display: inline-block;
+	content: "\f111";
+	font-family: 'Font Awesome 5 Free';
+	font-size: 18px;
+	color: #999;
+}
+
+.form-radio input.is-invalid + label:before {
+	color: var(--bs-form-invalid-color);
+}
+
+.form-radio input:checked + label:before {
+	content: "\f058";
+}
+
+.form-radio input:focus + label:before {
+	color: #00bf63;
+}
+
+/**
+ * Buttons
+ */
+
+.btn-primary {
+	border: 1px solid #00bf63 !important;
+	background-color: #00bf63 !important;
+}
+
+.btn-primary:active,
+.btn-primary:focus,
+.btn-primary:hover {
+	border: 1px solid #00bf63 !important;
+	background-color: rgba(0,191,99,0.8) !important;
+}
+
+.btn-outline-primary {
+	border: 1px solid #00bf63 !important;
+	color: #00bf63 !important;
+}
+
+.btn-outline-primary:active,
+.btn-outline-primary:focus,
+.btn-outline-primary:hover {
+	background-color: rgba(0,191,99,0.8) !important;
+	color: #fff !important;
+}
+
+.btn-info {
+	border: 1px solid #ffd116 !important;
+	background-color: #ffd116 !important;
+}
+
+.btn-info:active,
+.btn-info:focus,
+.btn-info:hover {
+	border: 1px solid #ffd116 !important;
+	background-color: rgba(255,209,22,0.3) !important;
+}
+
+.btn-outline-info {
+	border: 1px solid #ffd116 !important;
+	color: inherit !important;
+}
+
+.btn-outline-info:active,
+.btn-outline-info:focus,
+.btn-outline-info:hover {
+	background-color: rgba(255,209,22,0.3) !important;
+}
+
+.btn-link {
+	color: #000 !important;
+}
+
+.btn-link:active,
+.btn-link:focus,
+.btn-link:hover {
+	color: rgba(0,191,99,0.8) !important;
+}
+
+.btn-primary.disabled,
+.btn-primary:disabled,
+.btn-info.disabled,
+.btn-info:disabled {
+	border: 1px solid #ccc !important;
+	background-color: #f1f1f1 !important;
+	color: #999 !important;
+}
+
+#google-login {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	color: #1f1f1f;
+	background-color: #fff;
+	border: 1px solid #747775;
+	border-radius: 50px;
+	font-family: 'Roboto', arial, sans-serif;
+	font-size: 14px;
+	font-weight: 500;
+}
+
+#google-login:before {
+	content: "";
+	display: block;
+	margin-right: 12px;
+	width: 20px;
+	height: 20px;
+	background-image: url("../images/google_g.svg");
+	background-repeat: no-repeat;
+	background-position: center center;
+	background-size: contain;
+}
+
+#google-login:hover {
+	-webkit-box-shadow: 0 1px 2px 0 rgba(60, 64, 67, .30), 0 1px 3px 1px rgba(60, 64, 67, .15);
+	box-shadow: 0 1px 2px 0 rgba(60, 64, 67, .30), 0 1px 3px 1px rgba(60, 64, 67, .15);
+}
+
+#google-login:hover:after {
+	content: "";
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	top: 0;
+	display: block;
+	background-color: #303030;
+	border-radius: 50px;
+	opacity: 8%;
+	z-index: 3;
+}
+
+/**
+ * Navi design
+ */
+
+nav.navbar .racsterMainLogo {
+	height: 30px;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus,
+.dropdown-item.active,
+.dropdown-item:active {
+	background-color: rgba(0,191,99,0.3);
+	color: var(--bs-dropdown-link-hover-color);
+}
+
+#navbarNav {
+	flex-grow: 0;
+}
+
+#navbarNav #userProfileImage {
+	display: inline-block;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	overflow: hidden;
+}
+
+#navbarNav #userProfileImage img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center;
+}
+
+/**
+ * Main design
+ */
+
+.card {
+	border-color: rgba(81,188,27,0.3);
+	border: 0 !important;
+}
+
+.card .card-header {
+	color: #00bf63;
+	background-color: rgba(81,188,27,0.05);
+}
+
+.card .card-footer {
+	background-color: rgba(0,0,0,0.02);
+}
+
+.alert-primary,
+.list-group-item-primary {
+	background-color: rgba(81,188,27,0.05);
+	border-color: rgba(81,188,27,0.3);
+	color: #999;
+}
+
+.list-group-item-action.list-group-item-primary:hover {
+	background-color: rgba(81,188,27,0.3);
+}
+
+.list-group-item-secondary {
+	background-color: rgba(0,0,0,0.02);
+	border-color: rgba(0,0,0,0.1);
+}
+
+.list-group-item-action.list-group-item-secondary:hover {
+	background-color: rgba(0,0,0,0.1);
+}
+
+.alert-info {
+	border: 1px solid #ffd116 !important;
+	background-color: rgba(255,209,22,0.3) !important;
+}
+
+.text-primary {
+	color: #1800ad !important;
+}
+
+.text-info {
+	color: #ffd116 !important;
+}
+
+.border-primary {
+	border-color: rgba(81,188,27,0.3) !important;
+}
+
+.border-info {
+	border-color: #ffd116 !important;
+}
+
+.border-secondary {
+	border-color: rgba(0,0,0,0.1) !important;
+}
+
+/**
+ * Modal design
+ */
+
+.modal-content.modal-loading {
+	position: relative;
+}
+
+.modal-content.modal-loading:before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+	display: block;
+	background-color: rgba(0,0,0,0.3);
+	z-index: 1;
+}
+
+.modal-content.modal-loading:after {
+	content: "\f110";
+	position: absolute;
+	top: calc(50% - 15px);
+	left: calc(50% - 15px);
+	transform: translate(-50%, -50%);
+	display: inline-block;
+	width: 30px;
+	height: 30px;
+	animation: fa-spin 1s linear infinite;
+	font-family: 'Font Awesome 5 Free';
+	font-size: 30px;
+	font-weight: 700;
+	color: #fff;
+	line-height: 30px;
+	z-index: 3;
+}
+
+/* Define the spin keyframes */
+@keyframes fa-spin {
+	0% { transform: translate(-50%, -50%) rotate(0deg); }
+	100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+
+/**
+ * Pagination design
+ */
+.def-pagi > nav {
+	display: inline-block;
+}
+
+.def-pagi ul.pagination {
+	margin-bottom: 0;
+}
+
+.def-pagi ul.pagination li {
+	display: inline-block;
+	margin-left: 5px;
+}
+
+.def-pagi ul.pagination li a,
+.def-pagi ul.pagination li span {
+	float: none;
+	border-color: #ccc;
+	color: initial;
+}
+
+.def-pagi ul.pagination li.active span,
+.def-pagi ul.pagination li:hover span {
+	background-color: #eee;
+	border-color: #ccc;
+	color: initial;
+}
+
+/**
+ * Profile design
+ */
+
+#profile_phone_number .iti {
+	display: block !important;
+}
+
+#profile_phone_number .iti__dropdown-content {
+	z-index: 3;
+}
+
+.round-user-img {
+	width: 40px;
+	height: auto;
+	max-height: 40px;
+	border-radius: 50px;
+}
+
+/**
+ * Timetable design
+ */
+
+.caltable,
+.weektable,
+.wt-week {
+	--gridLine: rgba(0,0,0,.08);
+	--theadBg: rgba(0,0,0,0.03);
+}
+
+.wt-week {
+	--timeCol: 56px;
+	--rowH: 24px;
+	--headerBg: #fff;
+	--maxH: calc(100vh - 320px);
+	display: flex;
+	flex-direction: column;
+}
+
+.wt-topbar {
+	height: 38px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 8px;
+	background: #fff;
+	position: sticky;
+	top: 0;
+	z-index: 40;
+}
+
+.wt-title {
+	flex: 1;
+	text-align:center;
+	font-weight: 600;
+}
+
+.wt-scroll{
+	flex: 1;
+	max-height: var(--maxH);
+	min-height: 500px;
+	overflow: auto;
+	position: relative;
+}
+
+.wt-day-head {
+	position: sticky;
+	top: 0;
+	z-index: 30;
+	background: #fff;
+	display:grid;
+	grid-template-columns: var(--timeCol) 1fr;
+	font-size: .875em;
+}
+
+.wt-time-head {
+	/*border-right: 1px solid var(--gridLine);*/
+}
+
+.wt-days-head {
+	display:grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.wt-day-label {
+	border-left: 1px solid var(--gridLine);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.wt-body {
+	display:grid;
+	grid-template-columns: var(--timeCol) 1fr;
+}
+
+/* time column */
+.wt-times {
+	/*border-right: 1px solid var(--gridLine);*/
+}
+
+.wt-time-slot {
+	height: var(--rowH);
+	display:flex;
+	align-items:flex-start;
+	justify-content:flex-end;
+	padding: 2px 6px;
+	background-color: var(--theadBg);
+}
+
+.wt-time-slot:not(:first-of-type):nth-child(odd){
+	border-top: 1px solid var(--gridLine);
+}
+
+/* days area */
+.wt-days-grid {
+	position: relative;
+	display:grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+/* each day column draws horizontal lines */
+.wt-day-col {
+	height: calc(var(--rows) * var(--rowH));
+	border-left: 1px solid var(--gridLine);
+	background:
+	repeating-linear-gradient(
+	  to bottom,
+	  transparent 0,
+	  transparent calc(var(--rowH) - 1px),
+	  var(--gridLine) var(--rowH)
+	);
+}
+
+.wt-day-col.is-today {
+	background:
+	linear-gradient(to bottom, var(--theadBg), var(--theadBg)),
+	repeating-linear-gradient(
+	  to bottom,
+	  transparent 0,
+	  transparent calc(var(--rowH) - 1px),
+	  var(--gridLine) var(--rowH)
+	);
+}
+
+/* events overlay uses CSS grid rows/cols (no JS positioning needed) */
+.wt-events {
+	position:absolute;
+	inset:0;
+	display:grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	grid-template-rows: repeat(var(--rows), var(--rowH));
+	pointer-events:none;
+}
+
+.wt-event {
+	pointer-events:auto;
+	grid-column: var(--col);
+	grid-row: var(--r1) / var(--r2);
+	/* overlap layout inside the day column */
+	width: calc(100% / var(--on));
+	position: relative;
+	left: calc((100% / var(--on)) * var(--oc));
+	overflow:hidden;
+	cursor:pointer;
+	box-sizing: border-box;
+	z-index: calc(10 + var(--oc));
+}
+
+.wt-cont {
+	position: absolute;
+	top: 2px;
+	right: 6px;
+	font-size: 12px;
+	opacity: .7;
+	pointer-events: none;
+	line-height: 1;
+}
+
+.wt-cont.from-prev {
+	opacity: .9;
+}
+.wt-cont.to-next {
+	opacity: .9;
+}
+
+.wt-event-title,
+.weektable .week-col-dates .date-entry > div:first-of-type {
+	margin-bottom: 2px;
+}
+
+.wt-event-meta {
+	gap: 8px;
+}
+
+.wt-event-attend {
+	margin-left: auto;
+	padding: 3px;
+	color: #fff;
+	background-color: #00bf63;
+	border-radius: 5px;
+}
+
+#entryprice h5 {
+	color: #00bf63;
+}
+
+.caltable {
+	padding: 0;
+}
+
+.caltable.weektable {
+	position: relative;
+	min-height: 500px;
+	max-height: calc(100vh - 230px);
+	overflow: auto;
+}
+
+.caltable table {
+	width: 100%;
+}
+
+.caltable.weektable table {
+	table-layout: fixed;
+}
+
+.caltable thead,
+.weektable .date-col-title,
+.wt-week .wt-day-head {
+	border-bottom: 1px solid var(--gridLine);
+}
+
+.caltable thead tr:nth-of-type(2),
+.weektable .date-col-title,
+.wt-week .wt-time-head,
+.wt-week .wt-day-label {
+	background-color: var(--theadBg);
+}
+
+.caltable thead th,
+.weektable .week-col-title,
+.weektable .date-col-title,
+.wt-week .wt-day-label {
+	padding: 3px 5px;
+	text-align: center;
+	font-weight: 500;
+}
+
+.caltable.weektable thead {
+	position: sticky;
+	top: 0;
+	background-color: #fff !important;
+	z-index: 2;
+}
+
+.weektable .date-col-title i {
+	float: right;
+	margin-top: 5px;
+	transition: transform 0.3s ease;
+}
+
+.weektable .date-col-title.opened i {
+	transform: rotate(180deg);
+}
+
+.caltable thead th a {
+	display: block;
+	line-height: 30px;
+}
+
+.caltable thead th.small,
+.wt-week .wt-day-head {
+	line-height: 20px;
+}
+
+.caltable tbody tr {
+	border-bottom: 1px solid var(--gridLine);
+}
+
+.caltable tbody td,
+.weektable .week-col-dates > div {
+	position: relative;
+	padding: 5px 0;
+	width: calc(100% / 7);
+	height: 10vh;
+	vertical-align: top;
+	border-right: 1px solid var(--gridLine);
+	font-size: 12px;
+	z-index: 1;
+}
+
+.weektable .week-col-dates > div {
+	height: auto;
+}
+
+.caltable.weektable tbody td {
+	padding: 0 5px;
+	height: 50px;
+}
+
+.caltable tbody tr td:first-of-type {
+	padding: 3px 5px;
+	width: 30px;
+	vertical-align: middle;
+	background-color: var(--theadBg);
+}
+
+.caltable tbody tr td:first-of-type small,
+.wt-time-slot small {
+	font-size: .75rem;
+}
+
+.caltable.weektable tbody tr td:first-of-type {
+	vertical-align: top;
+}
+
+.caltable tbody tr td:last-of-type {
+	border-right: 0;
+}
+
+.caltable .elseday {
+	color: #ccc;
+}
+
+.caltable .weekend {
+	background-color: rgba(0,0,0,0);
+}
+
+.caltable .today {
+	background-color: var(--theadBg);
+}
+
+.caltable tbody tr td .date-entry,
+.weektable .week-col-dates .date-entry,
+.wt-week .wt-events .date-entry {
+	margin: 2px 0px;
+	padding: 6px 8px;
+	font-size: 12px;
+	line-height: 1.15;
+	background-color: rgba(255,255,255,1);
+	border: 1px solid #2E2E2E;
+	border-radius: 5px;
+	cursor: pointer;
+}
+
+.caltable tbody tr td .date-entry.private-entry,
+.weektable .week-col-dates .date-entry.private-entry,
+.wt-week .wt-events .date-entry.private-entry {
+	background-color: rgba(255,209,22,0.5);
+}
+
+.caltable tbody tr td .date-entry.recurring-entry,
+.weektable .week-col-dates .date-entry.recurring-entry,
+.wt-week .wt-events .date-entry.recurring-entry {
+	background-color: rgba(189,227,248,1);
+}
+
+.caltable tbody tr td .date-entry.attended-entry.onhold,
+.weektable .week-col-dates .date-entry.attended-entry.onhold,
+.wt-week .wt-events .date-entry.attended-entry.onhold {
+	background-color: rgba(0,0,0,0.08);
+}
+
+.caltable tbody tr td .date-entry:not(.attended-entry),
+.weektable .week-col-dates .date-entry:not(.attended-entry),
+.wt-week .wt-events .date-entry:not(.attended-entry) {
+	opacity: 0.5;
+}
+
+.caltable tbody tr td .date-entry:not(.attended-entry):hover,
+.weektable .week-col-dates .date-entry:not(.attended-entry):hover,
+.wt-week .wt-events .date-entry:not(.attended-entry):hover {
+	opacity: 1;
+}
+
+.caltable tbody tr td .date-entry:hover,
+.caltable tbody tr td .date-entry:focus,
+.caltable tbody tr td .date-entry:focus-visible,
+.weektable .week-col-dates .date-entry:focus,
+.weektable .week-col-dates .date-entry:focus-visible,
+.wt-week .wt-events .date-entry:hover,
+.wt-week .wt-events .date-entry:focus,
+.wt-week .wt-events .date-entry:focus-visible {
+	outline: 1px solid #2E2E2E !important;
+}
+
+.caltable tbody tr td .date-entry.private-entry:hover,
+.caltable tbody tr td .date-entry.private-entry:focus,
+.caltable tbody tr td .date-entry.private-entry:focus-visible,
+.weektable .week-col-dates .date-entry.private-entry:focus,
+.weektable .week-col-dates .date-entry.private-entry:focus-visible,
+.wt-week .wt-events .date-entry.private-entry:hover,
+.wt-week .wt-events .date-entry.private-entry:focus,
+.wt-week .wt-events .date-entry.private-entry:focus-visible {
+	outline: 1px solid #2E2E2E !important;
+}
+
+.caltable tbody tr td .date-entry.recurring-entry:hover,
+.caltable tbody tr td .date-entry.recurring-entry:focus,
+.caltable tbody tr td .date-entry.recurring-entry:focus-visible,
+.weektable .week-col-dates .date-entry.recurring-entry:focus,
+.weektable .week-col-dates .date-entry.recurring-entry:focus-visible,
+.wt-week .wt-events .date-entry.recurring-entry:hover,
+.wt-week .wt-events .date-entry.recurring-entry:focus,
+.wt-week .wt-events .date-entry.recurring-entry:focus-visible {
+	outline: 1px solid #2E2E2E !important;
+}
+
+.caltable tbody tr td .date-entry.attended-entry.onhold:hover,
+.caltable tbody tr td .date-entry.attended-entry.onhold:focus,
+.caltable tbody tr td .date-entry.attended-entry.onhold:focus-visible,
+.weektable .week-col-dates .date-entry.attended-entry.onhold:focus,
+.weektable .week-col-dates .date-entry.attended-entry.onhold:focus-visible,
+.wt-week .wt-events .date-entry.attended-entry.onhold:hover,
+.wt-week .wt-events .date-entry.attended-entry.onhold:focus,
+.wt-week .wt-events .date-entry.attended-entry.onhold:focus-visible {
+	outline: 1px solid #2E2E2E !important;
+}
+
+.coach-image {
+	display: block;
+	margin: 0 auto;
+	width: 50%;
+	max-width: 150px;
+	height: auto;
+	max-height: 200px;
+	border-radius: 200px;
+}
+
+/**
+ * Date-time-picker design
+ */
+
+#ui-datepicker-div {
+	padding: 5px;
+	border: 1px solid rgba(81,188,27,0.3);
+	border-radius: 0;
+}
+
+.ui-datepicker {
+	width: auto;
+}
+
+.ui-datepicker .ui-widget-header.ui-corner-all {
+	border: 0;
+	border-radius: 0;
+}
+
+.ui-datepicker .ui-widget-header.ui-corner-all .ui-datepicker-title select {
+	padding: 5px 0;
+}
+
+.ui-datepicker .ui-datepicker-prev,
+.ui-datepicker .ui-datepicker-prev-hover {
+	top: 7px;
+	left: 7px;
+}
+
+.ui-datepicker .ui-datepicker-next,
+.ui-datepicker .ui-datepicker-next-hover {
+	top: 7px;
+	right: 7px;
+}
+
+.ui-datepicker .ui-widget-header.ui-corner-all .ui-icon {
+	background-image: url("../js/images/ui-icons_777777_256x240.png");
+	color: #ccc;
+}
+
+.ui-datepicker .ui-widget-header.ui-corner-all .ui-state-hover {
+	border: 0;
+	background-color: transparent;
+	cursor: pointer;
+}
+
+.ui-datepicker .ui-widget-header.ui-corner-all .ui-state-hover .ui-icon {
+	background-image: url("../js/images/ui-icons_555555_256x240.png");
+}
+
+.ui-datepicker .ui-datepicker-calendar .ui-state-default {
+	padding: 9px 12px;
+	color: #00bf63;
+	border: 0;
+	text-align: center;
+}
+
+.ui-datepicker .ui-datepicker-calendar .ui-priority-secondary {
+	background-color: #f2f2f2;
+}
+
+.ui-datepicker .ui-datepicker-calendar .ui-state-highlight {
+	background-color: rgba(237,237,237,1);
+}
+
+.ui-datepicker .ui-datepicker-calendar .ui-state-active {
+	background-color: rgba(81,188,27,0.3);
+}
+
+.ui-datepicker .ui-datepicker-calendar .ui-state-hover {
+	background-color: rgba(81,188,27,0.3);
+}
+
+.ui-datepicker .ui-timepicker-div dl {
+	margin: 0;
+}
+
+.ui-datepicker .ui-timepicker-div dt,
+.ui-datepicker .ui-timepicker-div .ui_tpicker_time_label {
+	padding: 5px !important;
+}
+
+.ui-datepicker .ui-timepicker-div select {
+	padding: 5px;
+}
+
+.ui-datepicker .ui-datepicker-buttonpane button {
+	margin: 5px;
+	padding: 10px;
+}
+
+/**
+ * Entry modal design
+ */
+
+#recurring-entry {
+	position: relative;
+	width: 40px;
+	height: stretch;
+}
+
+#recurring-entry > div {
+	position: absolute;
+	top: -0.5rem;
+	left: -1rem;
+	width: 60px;
+	height: 60px;
+	background: #bde3f8;
+	border-top-left-radius: 0.5rem;
+	clip-path: polygon(0 0, 100% 0, 0 100%);
+	overflow: hidden;
+}
+
+#recurring-entry > div.private {
+	background: rgba(255,209,22,0.5);
+}
+
+#recurring-entry span {
+	position: absolute;
+	top: 28px;
+	left: 8px;
+	font-size: 12px;
+	transform: rotate(-45deg);
+	transform-origin: left center;
+	white-space: nowrap;
+}
+
+body.lang-en #recurring-entry span {
+	top: 32px;
+	left: 5px;
+}
+
+#recurring-entry > div.private span {
+	top: 31px;
+	left: 5px;
+}
+
+body.lang-en #recurring-entry > div.private span {
+	top: 26px;
+	left: 10px;
+}
+
+.show-coach-info[data-desc] {
+	cursor: pointer;
+}
+
+.entry-coach-desc {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(255,255,255,0.97);
+}
+
+.entry-coach-desc > .overflow-auto {
+	width: 100%;
+	max-height: 100%;
+}
+
+/**
+ * New entry design
+ */
+
+#entry-date-lines {
+	max-height: 70vh;
+	overflow-y: auto;
+}
+
+.date-client-pay {
+	padding: 0 5px;
+	min-height: 1.5rem;
+	color: #ccc;
+	cursor: pointer;
+}
+
+.date-client-pay input {
+	display: none !important;
+}
+
+.date-client-pay:hover i,
+.date-client-pay input:checked + i {
+	color: #00bf63;
+}
+
+/**
+ * Media screens design
+ */
+
+@media only screen and (min-width: 1200px){
+
+}
+
+@media only screen and (max-width: 991px){
+
+	.navbar #navbarNav #userDropdown:after {
+		display: none !important;
+	}
+
+	.navbar #navbarNav .navbar-nav > li.dropdown .dropdown-menu {
+		display: block;
+		margin-top: .5rem;
+	}
+
+	.weektable .date-col-title {
+		cursor: pointer;
+	}
+
+}
+
+@media only screen and (max-width: 767px){
+
+	.caltable tbody tr td .date-entry {
+		padding: 2px;
+	}
+
+	.caltable tbody tr td .date-entry .wt-event-meta {
+		gap: 0px;
+	}
+
+}
+
+@media only screen and (min-width: 576px) {
+
+	.w-sm-auto {
+		width: auto !important;
+	}
+
+}
+
+@media only screen and (max-width: 576px){
+
+}
+
+@media only screen and (max-width: 480px){
+
+	nav.navbar .navbar-brand {
+		margin-right: 0;
+		padding-top: 0;
+	}
+
+	nav.navbar .racsterMainLogo {
+		height: 20px;
+	}
+
+	.btn {
+		white-space: normal;
+	}
+
+	.def-pagi > nav {
+		display: block;
+		width: 100%;
+		overflow: auto;
+	}
+
+}
+
+@media only screen and (max-width: 400px){
+
+	nav.navbar .racsterMainLogo {
+		height: 18px;
+	}
+
+}

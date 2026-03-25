@@ -1,0 +1,589 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use DB;
+use Auth;
+use Response;
+use LaravelLocalization;
+use Log;
+
+use Carbon\Carbon;
+use App\Models\ProductPrice;
+use App\Models\User;
+use App\Models\UserPayment;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Redirect;
+use Laravel\Cashier\Subscription as CashierSubscription;
+
+class SubscriptionController extends Controller
+{
+
+	/**
+	 * Check if user is subscription owner
+	 */
+	protected function ensureOwner(CashierSubscription $subscription): bool
+	{
+		$u = auth()->user();
+
+		if (! $u) {
+			return false;
+		}
+
+		return (int) $subscription->user_id === (int) $u->id;
+
+	}
+
+	/**
+	 * Format money
+	 */
+	protected function formatMoney(?int $amount, ?string $currency): string
+	{
+		
+		if ($amount === null) return '—';
+
+		return number_format($amount / 100, 2).' '.strtoupper($currency ?? config('racster.main-currency'));
+
+	}
+
+	/**
+	 * Check if subscription exists in stripe
+	 */
+	protected function safeStripeSubscription(CashierSubscription $subscription): ?object
+	{
+		try {
+			return $subscription->asStripeSubscription(); // returns \Stripe\Subscription
+		} catch (\Throwable $e) {
+			Log::channel('stripepayments')->info('Stripe subscription fetch failed', [
+				'local_subscription_id'	=> $subscription->id,
+				'stripe_id'				=> $subscription->stripe_id,
+				'message'				=> $e->getMessage(),
+			]);
+			return null;
+		}
+	}
+
+	/**
+	 * Build a Blade-ready payload for a given Cashier Subscription model.
+	 */
+	protected function buildPayloadFromModel(CashierSubscription $subscription): array
+	{
+
+		$endsAt = $subscription->ends_at;
+		$status = $subscription->stripe_status;
+		$onGrace = method_exists($subscription, 'onGracePeriod') ? $subscription->onGracePeriod() : (optional($endsAt)?->isFuture() ?? false);
+
+		$isCanceled = ($status === 'canceled') or !is_null($endsAt);
+
+		$data = [
+			'id'			=> $subscription->id,
+			'name'			=> $subscription->name,
+			'stripe_id'		=> $subscription->stripe_id,
+			'stripe_status'	=> $status,
+			'on_grace'		=> $onGrace,
+			'ends_at'		=> optional($endsAt)?->toDateTimeString(),
+			'canceled'		=> $isCanceled,
+			'trial_ends_at'	=> optional($subscription->trial_ends_at)?->toDateTimeString(),
+			'items'			=> $subscription->items()->get(['stripe_price','stripe_product','quantity']),
+		];
+
+		// Get current period end from API
+		if ($stripeSub = $this->safeStripeSubscription($subscription)){
+			$stripeSub = $subscription->asStripeSubscription();
+			$data['current_period_end'] = $stripeSub->current_period_end ? Carbon::createFromTimestamp($stripeSub->current_period_end)->toDateTimeString() : null;
+		}
+
+		if (empty($data['current_period_end'])){
+			$payment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)->latest('id')->first();
+				if ($payment and !empty($payment->period_end)){
+					$data['current_period_end'] = $payment->period_end;
+				}
+		}
+
+		// Add paused data
+		if (is_null($subscription->is_paused) and $stripeSub = $this->safeStripeSubscription($subscription)) {
+			$stripeSub = $subscription->asStripeSubscription();
+			$paused = !empty($stripeSub->pause_collection);
+			$data['paused'] = $paused;
+			$data['pause_resumes_at'] = ($paused and !empty($stripeSub->pause_collection->resumes_at)) ? Carbon::createFromTimestamp($stripeSub->pause_collection->resumes_at)->toDateTimeString() : null;
+		} else {
+			$data['paused'] = (bool) $subscription->is_paused;
+			$data['pause_resumes_at'] = $subscription->pause_resumes_at ? (Carbon::parse($subscription->pause_resumes_at))->toDateTimeString() : null;
+		}
+
+		// Enrich from local ProductPrice/Product tables.
+		$priceIds = $data['items']->pluck('stripe_price')->filter()->values()->all();
+		$localPrices = ProductPrice::with('product')
+			->whereIn('stripe_price_id', $priceIds)
+			->get()
+			->keyBy('stripe_price_id');
+
+		$data['items'] = $data['items']->map(function ($it) use ($localPrices) {
+			$lp = $localPrices->get($it->stripe_price);
+			return [
+				'stripe_price'	=> $it->stripe_price,
+				'quantity'		=> $it->quantity,
+				'product_name'	=> $lp?->product?->name ?? $it->stripe_product,
+				'unit_amount'	=> $lp?->unit_amount,
+				'currency'		=> strtoupper($lp?->currency ?? config('racster.main-currency')),
+				'interval'		=> $lp?->interval,
+			];
+		})->all();
+
+		return $data;
+
+	}
+
+	/**
+	 * Get available prices for subscription
+	 */
+	protected function availablePricesForUI()
+	{
+
+		$prices = ProductPrice::with(['product' => fn($q) => $q->select('id','name','stripe_product_id','active')])
+			->where('active', true)
+			->whereNotNull('interval')
+			->orderBy('product_id')
+			->orderBy('unit_amount')
+			->get(['id','stripe_price_id','product_id','unit_amount','currency','interval']);
+
+		return $prices->map(fn ($p) => [
+			'stripe_price' => $p->stripe_price_id,
+			'label' => trim(sprintf(
+				'%s %s/%s',
+				$p->product?->name ?? '',
+				$this->formatMoney($p->unit_amount, $p->currency),
+				$p->interval ?? 'period'
+			)),
+		]);
+
+	}
+
+	/**
+	 * Show user subscriptions
+	 */
+	public function listSelf(Request $request)
+	{
+
+		$user = $request->user();
+		$subs = $user->subscriptions()->latest()->get(['id','stripe_id','stripe_status','ends_at','trial_ends_at']);
+
+		return view('subscriptions.index', [
+			'owner' => $user,
+			'subscriptions' => $subs,
+		]);
+
+	}
+
+	/**
+	 * Show user subscription
+	 */
+	public function showSelf(Request $request, CashierSubscription $subscription)
+	{
+
+		if ($this->ensureOwner($subscription)){
+
+			// Define owner
+			$owner = $request->user();
+
+			// Get user related entry with subscription
+			$payment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)
+				->where('user_id', $owner->id)
+				->latest('id')
+				->first();
+
+			if (!empty($payment)){
+
+				// Get entry data
+				$entry_data = DB::table('racster_entry_users as user')
+					->select('entry.entry_title')
+					->selectRaw('MIN(date.entry_start) AS minDate, MAX(date.entry_start) AS maxDate')
+					->join('racster_entry_dates as date', function ($join) {
+						$join->on('date.id', '=', 'user.date_id');
+						$join->on('date.entry_id', '=', 'user.entry_id');
+						$join->whereNull('date.deleted_at');
+					})
+					->join('racster_entries as entry', function($join){
+						$join->on('entry.id', '=', 'user.entry_id');
+						$join->whereNull('entry.deleted_at');
+					})
+					->where('user.entry_id', $payment->entry_id)
+					->where('user.user_type', 'client')
+					->where('user.user_id', $owner->id)
+					->where('user.paying', 1)
+					->whereNull('user.deleted_at')
+					->groupBy('entry.entry_title')
+					->first();
+
+			}
+
+			return view('subscriptions.show', [
+				'subscription'		=> $this->buildPayloadFromModel($subscription),
+				'availablePrices'	=> $this->availablePricesForUI(),
+				'owner'				=> $owner,
+				'payment'			=> $payment,
+				'entry'				=> (!empty($entry_data) ? $entry_data : ''),
+			]);
+
+		}else{
+
+			return Redirect::to(LaravelLocalization::localizeUrl('/subscriptions'))
+				->with('notice', trans('racster.no-rights-for-op'));
+
+		}
+
+	}
+
+	/**
+	 * Subscription will end at period end
+	 */
+	public function cancelSelf(Request $request, CashierSubscription $subscription)
+	{
+
+		$this->ensureOwner($subscription);
+		$subscription->cancel();
+
+		return back()->with('message', trans('stripe-products.subscription-will-end-at-period-end'));
+
+	}
+
+	/**
+	 * Cancel subscription immediately for user
+	 */
+/*	public function cancelNowSelf(Request $request, CashierSubscription $subscription)
+	{
+
+		$this->ensureOwner($subscription);
+		$subscription->cancelNow();
+
+		return back()->with('message', trans('stripe-products.subscription-cancelled'));
+
+	}*/
+
+	/**
+	 * Resume subscription for user
+	 */
+/*	public function resumeSelf(Request $request, CashierSubscription $subscription)
+	{
+
+		$this->ensureOwner($subscription);
+		$subscription->resume();
+
+		return back()->with('message', trans('stripe-products.subscription-resumed'));
+	
+	}*/
+
+	/**
+	 * Update subscription price for user
+	 */
+/*	public function swapSelf(Request $request, CashierSubscription $subscription)
+	{
+
+		$this->ensureOwner($subscription);
+		$request->validate(['price_id' => ['required','string']]);
+		$subscription->swap($request->price_id);
+
+		return back()->with('message', trans('stripe-products.subscription-price-changed'));
+
+	}*/
+
+	/**
+	 * Update subscription quantity for user
+	 */
+/*	public function updateQuantitySelf(Request $request, CashierSubscription $subscription)
+	{
+
+		$this->ensureOwner($subscription);
+		$request->validate(['quantity' => ['required','integer','min:1','max:100000']]);
+		$subscription->updateQuantity($request->integer('quantity'));
+
+		return back()->with('message', trans('stripe-products.subscription-quantity-changed'));
+
+	}*/
+
+	/**
+	 * Admin: show users with subscription list
+	 */
+	public function adminIndex(Request $request)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$users = User::whereNotNull('stripe_id')->whereHas('subscriptions')->orderBy('id','desc')->paginate(25);
+
+			return view('subscriptions.admin', ['users' => $users]);
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: show user subscriptions
+	 */
+	public function listForUser(Request $request, User $user)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$subs = $user->subscriptions()->latest()->get(['id','stripe_id','stripe_status','ends_at','trial_ends_at']);
+
+			return view('subscriptions.index', [
+				'owner'			=> $user,
+				'subscriptions'	=> $subs,
+				'adminview'		=> true,
+			]);
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: show user subscription
+	 */
+	public function showAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$owner = $subscription->user;
+
+			// Get user related entry with subscription
+			$payment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)
+				->where('user_id', $owner->id)
+				->latest('id')
+				->first();
+
+			if (!empty($payment)){
+
+				// Get entry data
+				$entry_data = DB::table('racster_entry_users as user')
+					->select('entry.entry_title')
+					->selectRaw('MIN(date.entry_start) AS minDate, MAX(date.entry_start) AS maxDate')
+					->join('racster_entry_dates as date', function ($join) {
+						$join->on('date.id', '=', 'user.date_id');
+						$join->on('date.entry_id', '=', 'user.entry_id');
+						$join->whereNull('date.deleted_at');
+					})
+					->join('racster_entries as entry', function($join){
+						$join->on('entry.id', '=', 'user.entry_id');
+						$join->whereNull('entry.deleted_at');
+					})
+					->where('user.entry_id', $payment->entry_id)
+					->where('user.user_type', 'client')
+					->where('user.user_id', $owner->id)
+					->where('user.paying', 1)
+					->whereNull('user.deleted_at')
+					->groupBy('entry.entry_title')
+					->first();
+
+			}
+
+			return view('subscriptions.show', [
+				'subscription'		=> $this->buildPayloadFromModel($subscription),
+				'availablePrices'	=> $this->availablePricesForUI(),
+				'owner'				=> $owner,
+				'payment'			=> $payment,
+				'entry'				=> (!empty($entry_data) ? $entry_data : ''),
+				'adminview'			=> true,
+			]);
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: cancel subscription at end of period
+	 */
+	public function cancelAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$subscription->cancel();
+			return back()->with('message', trans('stripe-products.subscription-will-end-at-period-end-for-email', ['email' => $subscription->user->email]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: cancel subscription immediately
+	 */
+	public function cancelNowAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$subscription->cancelNow();
+
+			return back()->with('message', trans('stripe-products.subscription-cancelled-for-email', ['email' => $subscription->user->email]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: resume subscription
+	 */
+	public function resumeAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$subscription->resume();
+			return back()->with('message', trans('stripe-products.subscription-resumed-for-email', ['email' => $subscription->user->email]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: update subscription price
+	 */
+	public function swapAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$request->validate(['price_id' => ['required','string']]);
+			$subscription->swap($request->price_id);
+
+			return back()->with('message', trans('stripe-products.subscription-price-changed-for-email', ['email' => $subscription->user->email]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: change subscription quantity
+	 */
+	public function updateQuantityAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$request->validate(['quantity' => ['required','integer','min:1','max:100000']]);
+			$subscription->updateQuantity($request->integer('quantity'));
+
+			return back()->with('message', trans('stripe-products.subscription-quantity-changed-for-email', ['email' => $subscription->user->email]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: pause subscription until a chosen date or +1 month
+	 */
+	public function pauseAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$request->validate([
+				'resume_date' => ['nullable', 'date_format:d.m.Y', 'after_or_equal:today'],
+				'behavior' => ['nullable', 'in:void,keep_as_draft,mark_uncollectible'],
+			]);
+
+			$behavior = $request->input('behavior', 'void');
+
+			// Pause until date or +1 month
+			if ($request->filled('resume_date')) {
+				$resumeAt = Carbon::createFromFormat('d.m.Y', $request->resume_date)->setTimezone(config('app.timezone'))->endOfDay()->timestamp;
+			} else {
+				$resumeAt = Carbon::now()->setTimezone(config('app.timezone'))->addMonth()->timestamp;
+			}
+
+			$stripe = new \Stripe\StripeClient(env('STRIPE_SECRET'));
+
+			$stripe->subscriptions->update(
+				$subscription->stripe_id,
+				[
+					'pause_collection' => [
+						'behavior' => $behavior,
+						'resumes_at' => $resumeAt,
+					],
+				]
+			);
+
+			return back()->with('message', trans('stripe-products.subscription-paused-for-email', ['email' => $subscription->user->email, 'date' => Carbon::createFromTimestamp($resumeAt)->setTimezone(config('app.timezone'))->toDateTimeString()]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Admin: resume subscription immediately from pause
+	 */
+	public function restartAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$stripe = new \Stripe\StripeClient(env('STRIPE_SECRET'));
+			$stripe->subscriptions->update(
+				$subscription->stripe_id,
+				[
+					'pause_collection' => null,
+				]
+			);
+
+			return back()->with('message', trans('stripe-products.subscription-resumed-for-email', ['email' => $subscription->user->email]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+	public function updateTrialAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (Auth::user()->hasRole('admin')){
+
+			$request->validate([
+				'trial_end_date' => ['required', 'date_format:d.m.Y', 'after_or_equal:today'],
+			]);
+
+			$tz = config('app.timezone');
+			$selectedDate = Carbon::createFromFormat('d.m.Y', $request->trial_end_date, $tz);
+
+			if ($selectedDate->isToday()) {
+				$newTrialEnd = Carbon::now($tz)->addMinutes(5);
+			} else {
+				$newTrialEnd = $selectedDate->startOfDay();
+			}
+
+			$stripe = new \Stripe\StripeClient(env('STRIPE_SECRET'));
+
+			// Update Stripe first
+			$stripe->subscriptions->update(
+				$subscription->stripe_id,
+				[
+					'trial_end' => $newTrialEnd->timestamp,
+				]
+			);
+
+			// Retrieve immediately so UI reflects Stripe truth now
+			$stripeSub = $stripe->subscriptions->retrieve($subscription->stripe_id, []);
+
+			$trialEndsAt = !empty($stripeSub->trial_end)
+				? Carbon::createFromTimestamp($stripeSub->trial_end)->setTimezone(config('app.timezone'))
+				: null;
+
+			$currentPeriodEnd = !empty($stripeSub->current_period_end)
+				? Carbon::createFromTimestamp($stripeSub->current_period_end)->setTimezone(config('app.timezone'))
+				: null;
+
+			// Sync local Cashier row
+			$subscription->forceFill([
+				'trial_ends_at' => $trialEndsAt,
+				'stripe_status' => $stripeSub->status ?? $subscription->stripe_status,
+			])->save();
+
+			return back()->with('message', trans('stripe-products.subscription-trial-changed-for-email', ['email' => $subscription->user->email]));
+
+		}else{ return view('nouser'); }
+
+	}
+
+}

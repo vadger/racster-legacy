@@ -1,0 +1,27 @@
+/* Custom stylesheet for Racster */
+
+.btn-primary {
+	border: 1px solid #51bc1b !important;
+	background-color: #51bc1b !important;
+}
+
+.btn-primary:active,
+.btn-primary:focus,
+.btn-primary:hover {
+	border: 1px solid #51bc1b !important;
+	background-color: rgba(81,188,27,0.8) !important;
+}
+
+.racster-guest-page {
+	max-width: none;
+	min-height: 100vh;
+}
+
+.guest-welcome-page {
+	width: 100%;
+	min-height: 100vh;
+	background-image: url("../images/pexels-cottonbro-5739115.jpg");
+	background-size: cover;
+	background-repeat: no-repeat;
+	background-position: center;
+}
