@@ -68,12 +68,14 @@ class SubscriptionController extends Controller
 	/**
 	 * Build a Blade-ready payload for a given Cashier Subscription model.
 	 */
-	protected function buildPayloadFromModel(CashierSubscription $subscription): array
+	protected function buildPayloadFromModel(CashierSubscription $subscription, ?UserPayment $payment = null): array
 	{
 
 		$endsAt = $subscription->ends_at;
 		$status = $subscription->stripe_status;
-		$onGrace = method_exists($subscription, 'onGracePeriod') ? $subscription->onGracePeriod() : (optional($endsAt)?->isFuture() ?? false);
+		$onGrace = method_exists($subscription, 'onGracePeriod')
+			? $subscription->onGracePeriod()
+			: (optional($endsAt)?->isFuture() ?? false);
 
 		$isCanceled = ($status === 'canceled') or !is_null($endsAt);
 
@@ -89,47 +91,119 @@ class SubscriptionController extends Controller
 			'items'			=> $subscription->items()->get(['stripe_price','stripe_product','quantity']),
 		];
 
-		// Get current period end from API
-		if ($stripeSub = $this->safeStripeSubscription($subscription)){
-			$stripeSub = $subscription->asStripeSubscription();
-			$data['current_period_end'] = $stripeSub->current_period_end ? Carbon::createFromTimestamp($stripeSub->current_period_end)->toDateTimeString() : null;
+		// Current period end from Stripe if possible
+		if ($stripeSub = $this->safeStripeSubscription($subscription)) {
+			$data['current_period_end'] = $stripeSub->current_period_end
+				? Carbon::createFromTimestamp($stripeSub->current_period_end)->toDateTimeString()
+				: null;
 		}
 
-		if (empty($data['current_period_end'])){
-			$payment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)->latest('id')->first();
-				if ($payment and !empty($payment->period_end)){
-					$data['current_period_end'] = $payment->period_end;
-				}
+		// Fallback payment if caller did not pass one
+		$fallbackPayment = null;
+		if (!$payment) {
+			$fallbackPayment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)
+				->latest('id')
+				->first();
+			$payment = $fallbackPayment;
+		}
+
+		// Fallback current period end from payment row
+		if (empty($data['current_period_end']) and $payment and !empty($payment->period_end)) {
+			$data['current_period_end'] = $payment->period_end;
 		}
 
 		// Add paused data
-		if (is_null($subscription->is_paused) and $stripeSub = $this->safeStripeSubscription($subscription)) {
-			$stripeSub = $subscription->asStripeSubscription();
+		if (is_null($subscription->is_paused) and ($stripeSub = $this->safeStripeSubscription($subscription))) {
 			$paused = !empty($stripeSub->pause_collection);
 			$data['paused'] = $paused;
-			$data['pause_resumes_at'] = ($paused and !empty($stripeSub->pause_collection->resumes_at)) ? Carbon::createFromTimestamp($stripeSub->pause_collection->resumes_at)->toDateTimeString() : null;
+			$data['pause_resumes_at'] = ($paused and !empty($stripeSub->pause_collection->resumes_at))
+				? Carbon::createFromTimestamp($stripeSub->pause_collection->resumes_at)->toDateTimeString()
+				: null;
 		} else {
 			$data['paused'] = (bool) $subscription->is_paused;
-			$data['pause_resumes_at'] = $subscription->pause_resumes_at ? (Carbon::parse($subscription->pause_resumes_at))->toDateTimeString() : null;
+			$data['pause_resumes_at'] = $subscription->pause_resumes_at
+				? Carbon::parse($subscription->pause_resumes_at)->toDateTimeString()
+				: null;
 		}
 
-		// Enrich from local ProductPrice/Product tables.
+		$metadata = is_array($payment?->metadata) ? $payment->metadata : [];
+
 		$priceIds = $data['items']->pluck('stripe_price')->filter()->values()->all();
 		$localPrices = ProductPrice::with('product')
 			->whereIn('stripe_price_id', $priceIds)
 			->get()
 			->keyBy('stripe_price_id');
 
-		$data['items'] = $data['items']->map(function ($it) use ($localPrices) {
+		$data['items'] = $data['items']->map(function ($it) use ($localPrices, $metadata) {
 			$lp = $localPrices->get($it->stripe_price);
+
+			$baseAmount = !is_null($lp?->unit_amount) ? (int) $lp->unit_amount : null;
+			$qty = max(1, (int) ($it->quantity ?? 1));
+
+			$discountAmount = 0; // cents
+			$discountPercent = 0; // percent
+
+			if (!is_null($baseAmount)) {
+				$rawAmount = data_get($metadata, 'user_discount_amount');
+				$rawPercent = data_get($metadata, 'user_discount_percent');
+				$rawEuros = data_get($metadata, 'user_discount_euros');
+				$couponId = (string) data_get($metadata, 'stripe_coupon_id', '');
+
+				// NEW FORMAT:
+				// user_discount_amount = cents discount
+				// user_discount_percent = informational percent
+				if (is_numeric($rawPercent) and (int) $rawPercent > 0) {
+					$discountPercent = max(0, min(100, (int) $rawPercent));
+				}
+
+				if (is_numeric($rawAmount) and (int) $rawAmount > 0) {
+					$rawAmountInt = (int) $rawAmount;
+
+					// OLD FORMAT:
+					// user_discount_amount held the percent, eg "10"
+					// usually paired with coupon id like "..._10_percent_forever"
+					$isLegacyPercent =
+						$discountPercent === 0 &&
+						$rawAmountInt > 0 &&
+						$rawAmountInt <= 100 &&
+						(
+							str_contains($couponId, '_percent_')
+							|| (!is_numeric($rawEuros) and $rawAmountInt < 1000)
+						);
+
+					if ($isLegacyPercent) {
+						$discountPercent = $rawAmountInt;
+						$discountAmount = (int) round(($baseAmount * $discountPercent) / 100, 0);
+					} else {
+						$discountAmount = $rawAmountInt;
+					}
+				} elseif (is_numeric($rawEuros) and (int) $rawEuros > 0) {
+					// Safety fallback if only euros exist
+					$discountAmount = ((int) $rawEuros) * 100;
+				} elseif ($discountPercent > 0) {
+					// Safety fallback if only percent exists
+					$discountAmount = (int) round(($baseAmount * $discountPercent) / 100, 0);
+				}
+
+				$discountAmount = max(0, min($discountAmount, $baseAmount));
+			}
+
+			$effectiveAmount = !is_null($baseAmount)
+				? max(0, $baseAmount - $discountAmount)
+				: null;
+
 			return [
-				'stripe_price'	=> $it->stripe_price,
-				'quantity'		=> $it->quantity,
-				'product_name'	=> $lp?->product?->name ?? $it->stripe_product,
-				'unit_amount'	=> $lp?->unit_amount,
-				'currency'		=> strtoupper($lp?->currency ?? config('racster.main-currency')),
-				'interval'		=> $lp?->interval,
+				'stripe_price'			=> $it->stripe_price,
+				'quantity'				=> $qty,
+				'product_name'			=> $lp?->product?->name ?? $it->stripe_product,
+				'unit_amount'			=> $baseAmount,
+				'effective_unit_amount'	=> $effectiveAmount,
+				'discount_amount'		=> $discountAmount,
+				'discount_percent'		=> $discountPercent,
+				'currency'				=> strtoupper($lp?->currency ?? config('racster.main-currency')),
+				'interval'				=> $lp?->interval,
 			];
+
 		})->all();
 
 		return $data;
@@ -185,10 +259,10 @@ class SubscriptionController extends Controller
 
 		if ($this->ensureOwner($subscription)){
 
-			// Define owner
 			$owner = $request->user();
+			$payment = null;
+			$entry_data = null;
 
-			// Get user related entry with subscription
 			$payment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)
 				->where('user_id', $owner->id)
 				->latest('id')
@@ -196,7 +270,6 @@ class SubscriptionController extends Controller
 
 			if (!empty($payment)){
 
-				// Get entry data
 				$entry_data = DB::table('racster_entry_users as user')
 					->select('entry.entry_title')
 					->selectRaw('MIN(date.entry_start) AS minDate, MAX(date.entry_start) AS maxDate')
@@ -220,11 +293,12 @@ class SubscriptionController extends Controller
 			}
 
 			return view('subscriptions.show', [
-				'subscription'		=> $this->buildPayloadFromModel($subscription),
+				'subscription'		=> $this->buildPayloadFromModel($subscription, $payment),
 				'availablePrices'	=> $this->availablePricesForUI(),
 				'owner'				=> $owner,
 				'payment'			=> $payment,
 				'entry'				=> (!empty($entry_data) ? $entry_data : ''),
+				'has_discount'		=> (!empty(data_get($payment?->metadata, 'stripe_coupon_id')) or !empty(data_get($payment?->metadata, 'user_discount_amount'))),
 			]);
 
 		}else{
@@ -348,8 +422,9 @@ class SubscriptionController extends Controller
 		if (Auth::user()->hasRole('admin')){
 
 			$owner = $subscription->user;
+			$payment = null;
+			$entry_data = null;
 
-			// Get user related entry with subscription
 			$payment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)
 				->where('user_id', $owner->id)
 				->latest('id')
@@ -357,7 +432,6 @@ class SubscriptionController extends Controller
 
 			if (!empty($payment)){
 
-				// Get entry data
 				$entry_data = DB::table('racster_entry_users as user')
 					->select('entry.entry_title')
 					->selectRaw('MIN(date.entry_start) AS minDate, MAX(date.entry_start) AS maxDate')
@@ -381,11 +455,12 @@ class SubscriptionController extends Controller
 			}
 
 			return view('subscriptions.show', [
-				'subscription'		=> $this->buildPayloadFromModel($subscription),
+				'subscription'		=> $this->buildPayloadFromModel($subscription, $payment),
 				'availablePrices'	=> $this->availablePricesForUI(),
 				'owner'				=> $owner,
 				'payment'			=> $payment,
 				'entry'				=> (!empty($entry_data) ? $entry_data : ''),
+				'has_discount'		=> (!empty(data_get($payment?->metadata, 'stripe_coupon_id')) or !empty(data_get($payment?->metadata, 'user_discount_amount'))),
 				'adminview'			=> true,
 			]);
 
@@ -583,6 +658,182 @@ class SubscriptionController extends Controller
 			return back()->with('message', trans('stripe-products.subscription-trial-changed-for-email', ['email' => $subscription->user->email]));
 
 		}else{ return view('nouser'); }
+
+	}
+
+	/**
+	 * Remove discount coupon from subscription for user
+	 */
+/*	public function removeDiscountSelf(Request $request, CashierSubscription $subscription)
+	{
+
+		if (!$this->ensureOwner($subscription)) {
+			return Redirect::to(LaravelLocalization::localizeUrl('/subscriptions'))
+				->with('notice', trans('racster.no-rights-for-op'));
+		}
+
+		return $this->removeDiscountFromSubscription($subscription, false);
+
+	}*/
+
+	/**
+	 * Remove discount coupon from subscription for admin
+	 */
+	public function removeDiscountAdmin(Request $request, CashierSubscription $subscription)
+	{
+
+		if (!Auth::user()->hasRole('admin')) {
+			return view('nouser');
+		}
+
+		return $this->removeDiscountFromSubscription($subscription, true);
+
+	}
+
+	/**
+	 * Shared discount removal logic
+	 */
+	protected function removeDiscountFromSubscription(CashierSubscription $subscription, bool $adminView = false)
+	{
+
+		try {
+
+			$stripe = new \Stripe\StripeClient(env('STRIPE_SECRET'));
+
+			// Load fresh Stripe subscription and expand discount fields
+			$stripeSub = $stripe->subscriptions->retrieve($subscription->stripe_id, [
+				'expand' => [
+					'discount',
+					'discounts',
+					'items.data.discounts',
+				],
+			]);
+
+			Log::channel('stripepayments')->info('Before discount removal', [
+				'local_subscription_id' => $subscription->id,
+				'stripe_subscription_id' => $subscription->stripe_id,
+				'subscription_discount_id' => $stripeSub->discount->id ?? null,
+				'subscription_discounts_count' => !empty($stripeSub->discounts?->data) ? count($stripeSub->discounts->data) : 0,
+				'item_discounts' => collect($stripeSub->items->data ?? [])->map(function ($item) {
+					return [
+						'item_id' => $item->id ?? null,
+						'discounts_count' => !empty($item->discounts?->data) ? count($item->discounts->data) : 0,
+					];
+				})->all(),
+			]);
+
+			$removedSomething = false;
+
+			// Try to remove subscription-level discount unconditionally.
+			try {
+				$stripe->subscriptions->deleteDiscount($subscription->stripe_id, []);
+				$removedSomething = true;
+			} catch (\Throwable $e) {
+				Log::channel('stripepayments')->info('Subscription-level deleteDiscount did not remove anything', [
+					'local_subscription_id' => $subscription->id,
+					'stripe_subscription_id' => $subscription->stripe_id,
+					'message' => $e->getMessage(),
+				]);
+			}
+
+			// Remove item-level discounts too, if any exist
+			if (!empty($stripeSub->items) and !empty($stripeSub->items->data)) {
+				foreach ($stripeSub->items->data as $item) {
+					try {
+						if (!empty($item->discounts) and !empty($item->discounts->data)) {
+							$stripe->subscriptionItems->update($item->id, [
+								'discounts' => [],
+							]);
+							$removedSomething = true;
+						}
+					} catch (\Throwable $e) {
+						Log::channel('stripepayments')->warning('Failed removing item-level discount', [
+							'local_subscription_id' => $subscription->id,
+							'stripe_subscription_id' => $subscription->stripe_id,
+							'stripe_subscription_item_id' => $item->id ?? null,
+							'message' => $e->getMessage(),
+						]);
+					}
+				}
+			}
+
+			// Re-fetch Stripe subscription after deletion
+			$freshStripeSub = $stripe->subscriptions->retrieve($subscription->stripe_id, [
+				'expand' => [
+					'discount',
+					'discounts',
+					'items.data.discounts',
+				],
+			]);
+
+			$stillHasSubscriptionDiscount =
+				(!empty($freshStripeSub->discount) and !empty($freshStripeSub->discount->id))
+				|| (!empty($freshStripeSub->discounts) and !empty($freshStripeSub->discounts->data));
+
+			$stillHasItemDiscount = false;
+			if (!empty($freshStripeSub->items) and !empty($freshStripeSub->items->data)) {
+				foreach ($freshStripeSub->items->data as $item) {
+					if (!empty($item->discounts) and !empty($item->discounts->data)) {
+						$stillHasItemDiscount = true;
+						break;
+					}
+				}
+			}
+
+			Log::channel('stripepayments')->info('After discount removal', [
+				'local_subscription_id' => $subscription->id,
+				'stripe_subscription_id' => $subscription->stripe_id,
+				'still_has_subscription_discount' => $stillHasSubscriptionDiscount,
+				'still_has_item_discount' => $stillHasItemDiscount,
+				'subscription_discount_id' => $freshStripeSub->discount->id ?? null,
+				'subscription_discounts_count' => !empty($freshStripeSub->discounts?->data) ? count($freshStripeSub->discounts->data) : 0,
+				'item_discounts' => collect($freshStripeSub->items->data ?? [])->map(function ($item) {
+					return [
+						'item_id' => $item->id ?? null,
+						'discounts_count' => !empty($item->discounts?->data) ? count($item->discounts->data) : 0,
+					];
+				})->all(),
+			]);
+
+			// Clear local payment meta only if Stripe really no longer has discount
+			if (!$stillHasSubscriptionDiscount and !$stillHasItemDiscount) {
+
+				$payment = UserPayment::where('stripe_subscription_id', $subscription->stripe_id)
+					->latest('id')
+					->first();
+
+				if ($payment) {
+					$meta = is_array($payment->metadata) ? $payment->metadata : [];
+
+					unset(
+						$meta['stripe_coupon_id'],
+						$meta['user_discount_amount'],
+						$meta['user_discount_percent'],
+						$meta['user_discount_euros']
+					);
+
+					$payment->update([
+						'metadata' => $meta,
+					]);
+				}
+
+				return back()->with('message', trans('stripe-products.subscription-discount-removed'));
+
+			}
+
+			return back()->with('notice', trans('stripe-products.subscription-discount-remove-failed'));
+
+		} catch (\Throwable $e) {
+
+			Log::channel('stripepayments')->error('Failed to remove subscription discount', [
+				'local_subscription_id' => $subscription->id,
+				'stripe_subscription_id' => $subscription->stripe_id,
+				'message' => $e->getMessage(),
+			]);
+
+			return back()->with('notice', trans('stripe-products.subscription-discount-remove-failed'));
+
+		}
 
 	}
 

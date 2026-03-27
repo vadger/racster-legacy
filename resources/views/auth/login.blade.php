@@ -5,6 +5,10 @@
 	<div class="col-md-7">
 		<div class="p-4 bg-white shadow rounded">
 
+			@if(Session::has('status'))
+				<div class="alert alert-primary main-alert text-center p-2"> {!! Session::get('status') !!} </div>
+			@endif
+
 			<h2 class="mb-4">@lang('auth.login-page-title')</h2>
 			<form method="POST" action="{{ route('login') }}">
 				@csrf
@@ -56,3 +60,11 @@
 	</div>
 </div>
 @endsection
+
+@push("custom_scripts")
+	<script type="text/javascript">
+		$(document).ready(function ($) {
+			$('.main-alert').not('.collapse').delay(3000).fadeOut('slow');
+		});
+	</script>
+@endpush

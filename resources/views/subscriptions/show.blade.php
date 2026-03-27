@@ -107,13 +107,28 @@
 										{{ $i['product_name'] ?? $i['stripe_price'] }}
 									</strong>
 									<span>
-@if (!is_null($i['unit_amount']))
-										{{ number_format($i['unit_amount']/100, 2) }} {{ $i['currency'] }} / @lang('stripe-products.interval-option-'.($i['interval'] ?? 'period'))
+@if (!is_null($i['effective_unit_amount'] ?? null))
+	{{ number_format(($i['effective_unit_amount'] ?? 0) / 100, 2) }} {{ $i['currency'] }} / @lang('stripe-products.interval-option-'.($i['interval'] ?? 'period'))
+
+	@if (!empty($i['discount_amount']) && !is_null($i['unit_amount']))
+		<small class="text-muted text-decoration-line-through ms-1">
+			{{ number_format($i['unit_amount'] / 100, 2) }} {{ $i['currency'] }}
+		</small>
+
+		@if (!empty($i['discount_percent']))
+			<small class="text-success ms-1">
+				(-{{ $i['discount_percent'] }}%)
+			</small>
+		@endif
+	@endif
+@elseif (!is_null($i['unit_amount']))
+	{{ number_format($i['unit_amount'] / 100, 2) }} {{ $i['currency'] }} / @lang('stripe-products.interval-option-'.($i['interval'] ?? 'period'))
 @else
-										@lang('stripe-products.price-tbd')
+	@lang('stripe-products.price-tbd')
 @endif
+
 @if (($i['quantity'] ?? 1) > 1)
-										× {{ $i['quantity'] }}
+	× {{ $i['quantity'] }}
 @endif
 									</span>
 								</li>
@@ -128,7 +143,7 @@
 
 @if (Auth::user()->hasRole('admin') && !empty($adminview) && $adminview === true)
 
-@if ($subscription['trial_ends_at'])
+@if (!empty($subscription['trial_ends_at']) && strtotime($subscription['trial_ends_at']) > time())
 
 					<div class="row mt-4">
 						<div class="col-12">
@@ -261,15 +276,26 @@
 
 						<form method="POST" action="{{ (Auth::user()->hasRole('admin') && !empty($adminview) && $adminview === true) ? route('subscription.admin.cancel', ['subscription' => $subscription['id']]) : route('subscription.cancel', ['subscription' => $subscription['id']]) }}">
 							@csrf
-							<button class="btn btn-outline-secondary">@lang('stripe-products.cancel-at-period-end-button')</button>
+							<button class="btn btn-sm btn-outline-secondary">@lang('stripe-products.cancel-at-period-end-button')</button>
 						</form>
 
 @if (Auth::user()->hasRole('admin') && !empty($adminview) && $adminview === true)
 
 						<form method="POST" action="{{ route('subscription.admin.cancel_now', ['subscription' => $subscription['id']]) }}">
 							@csrf
-							<button class="btn btn-outline-danger">@lang('stripe-products.cancel-immediately-button')</button>
+							<button class="btn btn-sm btn-outline-secondary">@lang('stripe-products.cancel-immediately-button')</button>
 						</form>
+
+@if (!empty($has_discount))
+
+						<form method="POST" action="{{ (Auth::user()->hasRole('admin') && !empty($adminview) && $adminview === true) ? route('subscription.admin.remove_discount', ['subscription' => $subscription['id']]) : route('subscription.remove_discount', ['subscription' => $subscription['id']]) }}">
+							@csrf
+							<button class="btn btn-sm btn-outline-info" onclick="return confirm('@lang('stripe-products.remove-subscription-discount-confirm')')">
+								@lang('stripe-products.remove-subscription-discount-button')
+							</button>
+						</form>
+
+@endif
 
 @endif
 

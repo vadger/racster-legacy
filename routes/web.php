@@ -93,6 +93,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale()], function(){
 			//Route::post('/subscription/{subscription}/resume', [SubscriptionController::class, 'resumeSelf'])->name('subscription.resume')->whereNumber('subscription');
 			//Route::post('/subscription/{subscription}/swap', [SubscriptionController::class, 'swapSelf'])->name('subscription.swap')->whereNumber('subscription');
 			//Route::post('/subscription/{subscription}/quantity', [SubscriptionController::class, 'updateQuantitySelf'])->name('subscription.quantity')->whereNumber('subscription');
+			//Route::post('/subscriptions/{subscription}/remove-discount', [SubscriptionController::class, 'removeDiscountSelf'])->name('subscription.remove_discount');
 
 		// View and manage user credit
 		Route::get('/users/view-credit/{uid?}', [ManageUsersController::class, 'viewUserCredit'])->name('users-view-credit');
@@ -167,6 +168,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale()], function(){
 			Route::post('/users/subscription/{subscription}/pause', [SubscriptionController::class, 'pauseAdmin'])->name('subscription.admin.pause')->whereNumber('subscription');
 			Route::post('/users/subscription/{subscription}/restart', [SubscriptionController::class, 'restartAdmin'])->name('subscription.admin.restart')->whereNumber('subscription');
 			Route::post('/users/subscription/{subscription}/trial', [SubscriptionController::class, 'updateTrialAdmin'])->name('subscription.admin.trial')->whereNumber('subscription');
+			Route::post('/admin/subscriptions/{subscription}/remove-discount', [SubscriptionController::class, 'removeDiscountAdmin'])->name('subscription.admin.remove_discount')->whereNumber('subscription');
 
 	});
 

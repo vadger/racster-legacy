@@ -37,6 +37,7 @@ return [
 	'register-page-create-account-title' => 'Loo konto:',
 	'name' => 'Kasutajanimi',
 	'confirm-password' => 'Kinnita parool',
+	'password-and-confirm-do-not-match' => 'Paroolid peavad täpselt ühtima.',
 	'register-page-button' => 'Registreeru',
 
 	'reset-password-page-title' => 'Parooli lähtestamine',

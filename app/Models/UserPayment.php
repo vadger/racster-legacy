@@ -125,32 +125,32 @@ class UserPayment extends Model
 							'deleted_at' => \Carbon\Carbon::now(),
 						]);
 
+					// Get entry date clients count for subtraction
+					$client_count = DB::table('racster_entry_dates')
+						->where('id', $this->date_id)
+						->where('entry_id', $this->entry_id)
+						->whereNull('deleted_at')
+						->value('client_count');
+
+					// Define updatable date data
+					$datedata = [
+						'client_count' => (!empty($client_count) ? ($client_count-(!empty($client_quantity) ? $client_quantity : 1)) : 0),
+						'updated_at' => \Carbon\Carbon::now(),
+					];
+
+					// Make private event public without clients
+					if (empty($client_count) or ($client_count-(!empty($client_quantity) ? $client_quantity : 1)) < 1){
+						$datedata['private_entry'] = 0;
+					}
+
+					// Update client count in entry date row
+					DB::table('racster_entry_dates')
+						->where('id', $this->date_id)
+						->where('entry_id', $this->entry_id)
+						->whereNull('deleted_at')
+						->update($datedata);
+
 				}
-
-				// Get entry date clients count for subtraction
-				$client_count = DB::table('racster_entry_dates')
-					->where('id', $this->date_id)
-					->where('entry_id', $this->entry_id)
-					->whereNull('deleted_at')
-					->value('client_count');
-
-				// Define updatable date data
-				$datedata = [
-					'client_count' => (!empty($client_count) ? ($client_count-(!empty($client_quantity) ? $client_quantity : 1)) : 0),
-					'updated_at' => \Carbon\Carbon::now(),
-				];
-
-				// Make private event public without clients
-				if (empty($client_count) or ($client_count-(!empty($client_quantity) ? $client_quantity : 1)) < 1){
-					$datedata['private_entry'] = 0;
-				}
-
-				// Update client count in entry date row
-				DB::table('racster_entry_dates')
-					->where('id', $this->date_id)
-					->where('entry_id', $this->entry_id)
-					->whereNull('deleted_at')
-					->update($datedata);
 
 			}
 

@@ -138,5 +138,9 @@ return [
 	'subscription-paused-for-email' => ':email tellimus on peatatud kuni :date.',
 	'subscription-resumed-for-email' => ':email tellimus on aktiveeritud.',
 	'subscription-trial-changed-for-email' => ':email tellimuse prooviaeg on uuendatud.',
+	'subscription-discount-removed' => 'Tellimuse allahindlus eemaldati.',
+	'subscription-discount-remove-failed' => 'Tellimuse allahindluse eemaldamine ebaõnnestus.',
+	'remove-subscription-discount-button' => 'Eemalda allahindlus',
+	'remove-subscription-discount-confirm' => 'Kas olete kindel, et soovite sellelt tellimuselt allahindluse eemaldada?',
 
 ];

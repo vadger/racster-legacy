@@ -138,5 +138,9 @@ return [
 	'subscription-paused-for-email' => 'Subscription paused for :email until :date.',
 	'subscription-resumed-for-email' => 'Subscription resumed for :email.',
 	'subscription-trial-changed-for-email' => 'Subscription trial changed for :email.',
+	'subscription-discount-removed' => 'Subscription discount was removed.',
+	'subscription-discount-remove-failed' => 'Removing the subscription discount failed.',
+	'remove-subscription-discount-button' => 'Remove discount',
+	'remove-subscription-discount-confirm' => 'Are you sure you want to remove the discount from this subscription?',
 
 ];

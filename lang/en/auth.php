@@ -37,6 +37,7 @@ return [
 	'register-page-create-account-title' => 'Create account:',
 	'name' => 'Username',
 	'confirm-password' => 'Confirm password',
+	'password-and-confirm-do-not-match' => 'Passwords must match exactly.',
 	'register-page-button' => 'Register',
 
 	'reset-password-page-title' => 'Reset password',

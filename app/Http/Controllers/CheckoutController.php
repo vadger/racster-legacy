@@ -167,6 +167,19 @@ class CheckoutController extends Controller
 
 				if (!empty($transaction) and !empty($transaction->id)){
 
+					// Define entry price
+					$entry_price = $entry_date->entry_price;
+
+					// Add discount if client has discount
+					if (!empty(Auth::user()->discount_amount) and Auth::user()->discount_amount > 0 and $entry_price > 0 and $entry_date->extra_price != 1){
+						$entry_price = $entry_price-round(($entry_price*Auth::user()->discount_amount/100), 0);
+					}
+
+					// Update client transaction
+					UserTransactions::updateTransaction($transaction->id, [
+						'transaction_amount'	=> $entry_price,
+					]);
+
 					// Get first active oneoff product
 					$product = Product::query()
 						->active()
@@ -181,7 +194,7 @@ class CheckoutController extends Controller
 						return $this->oneOff(
 							request(),
 							$product,
-							amount: ($transaction->transaction_amount*100),
+							amount: ($entry_price*100),
 							currency: strtolower(config('racster.main-currency')),
 							entryId: $entry_date->entry_id,
 							dateId: $entry_date->id,
@@ -542,6 +555,14 @@ class CheckoutController extends Controller
 
 			if ($payment){
 				$payment->markCancelled();
+				if (!empty($payment->date_id)){
+					$transaction = UserTransactions::getUserDateTransaction(['onhold'], $payment->date_id, $payment->user_id);
+					if (!empty($transaction) and !empty($transaction->id) and $transaction->stripe_sess_id == $sessionId){
+						UserTransactions::updateTransaction($transaction->id, [
+							'stripe_sess_id'	=> NULL,
+						]);
+					}
+				}
 			}
 
 		}

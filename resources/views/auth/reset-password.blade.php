@@ -6,9 +6,8 @@
 		<div class="p-4 bg-white shadow rounded">
 
 			<h2 class="mb-4">@lang('auth.reset-password-page-title')</h2>
-			<form method="POST" action="{{ route('password.update') }}">
+			<form method="POST" action="{{ route('password.store') }}">
 				@csrf
-				@method('PUT')
 				<input type="hidden" name="token" value="{{ $request->route('token') }}">
 
 				<div class="mb-3">
