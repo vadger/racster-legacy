@@ -645,7 +645,7 @@ class StripeWebhookController extends CashierWebhookController
 			$nextMonday = $base->copy()->next(Carbon::MONDAY);
 			$minStart = $nextMonday->copy()->addDays(28)->startOfDay();
 		*/
-		$minStart = $base->copy()->addDays(28)->startOfDay();
+		$minStart = $base->copy()->addDays(20)->startOfDay();
 
 		$candidate = $minStart->copy()->day(25)->startOfDay();
 

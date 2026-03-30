@@ -181,6 +181,17 @@ class TimetableController extends Controller
 			$userInfo = DB::table('users')->where('id', $userID)->whereNull('deleted_at')->first();
 		}
 
+		// Define minimal minutes for attending entry date
+		$cancelling_min_period = DB::table('racster_assets')
+			->where('type', 'entry-mincancel')
+			->where('parent', $entry_data->entry_type)
+			->whereNull('deleted_at')
+			->value('title');
+
+		// Define cancellation date
+		$cancellation_date = strtotime('-'.(!empty($cancelling_min_period) ? (int)$cancelling_min_period : config('racster.cancelling-min-period')).' minutes', strtotime($entry_date->entry_start));
+		$cancellation_string = Carbon::createFromTimestamp($cancellation_date)->setTimezone(config('app.timezone'))->locale(app()->getLocale());
+
 		// Schedule email for user with(out) stripe invoice
 		ScheduledEmail::create([
 			'user_id'		=> ((!empty($userID) and !empty($userInfo->id)) ? $userInfo->id : Auth::user()->id),
@@ -195,7 +206,14 @@ class TimetableController extends Controller
 				'location' => $entry_location,
 				'maplink' => $entry_location_map,
 				'coaches' => implode(', ', $entry_coaches),
-			]),
+			]).
+				'<br /><hr />'.
+				'<p style="margin-bottom:0;padding-top:12px;text-align:center;">'.
+					'<em>'.
+						trans('racster.cancellation-available-until', ['time' => $cancellation_string->translatedFormat((app()->getLocale() === 'et' ? 'd.m \\k\\e\\l\\l H:i' : 'F jS \\a\\t g:i A'))]).'<br />'.
+						trans('racster.on-time-cancellation-gives-you-credit').
+					'</em>'.
+				'</p>',
 			'heading'		=> trans('racster.attending-to-entry-email-heading', [
 				'title' => $entry_data->entry_title,
 			]),
@@ -625,6 +643,10 @@ class TimetableController extends Controller
 						->whereNull('deleted_at')
 						->value('title');
 
+					// Define cancellation date
+					$cancellation_date = strtotime('-'.(!empty($cancelling_min_period) ? (int)$cancelling_min_period : config('racster.cancelling-min-period')).' minutes', strtotime($entry_date->entry_start));
+					$cancellation_string = Carbon::createFromTimestamp($cancellation_date)->setTimezone(config('app.timezone'))->locale(app()->getLocale());
+
 					// Define entry price
 					$entry_price = (!empty($entry_date->entry_price) ? round($entry_date->entry_price, 0) : config('racster.default-price'));
 
@@ -734,13 +756,16 @@ class TimetableController extends Controller
 						'reccost'	=> ((!empty(Auth::user()->discount_amount) and Auth::user()->discount_amount > 0 and !empty($entry_data->recurring_entry) and $entry_data->recurring_entry == 1 and !empty($entry_data->entry_monthly_fee)) ?
 							round($entry_data->entry_monthly_fee, 0)-round(($entry_data->entry_monthly_fee*Auth::user()->discount_amount/100), 0).config('racster.transaction-token').(!empty($subscription) ? ' / '.trans('stripe-products.interval-option-'.$subscription->interval) : '') : ''),
 						'subscribed'=> (!empty($activeSubscription)),
-						'pastentry'	=> (strtotime('-'.(!empty($cancelling_min_period) ? (int)$cancelling_min_period : config('racster.cancelling-min-period')).' minutes', strtotime($entry_date->entry_start)) <= $this->thistime),
+						'pastentry'	=> ($cancellation_date <= $this->thistime),
 						'available' => (strtotime('-'.(!empty($attending_min_period) ? (int)$attending_min_period : config('racster.attending-min-period')).' minutes', strtotime($entry_date->entry_start)) >= $this->thistime),
 						'limfuture'	=> ((
 							strtotime($entry_date->entry_start) > Carbon::now()->startOfWeek()->addWeek()->addDays(config('racster.prebooking-limit'))->timestamp and
 								!in_array($entry_data->entry_type, config('racster.unlimited-prebooking-limit')) and !Auth::user()->hasRole('coach')
 							) ? true : false),
 						'noprivate' => (in_array($entry_data->entry_type, config('racster.unlimited-prebooking-limit'))),
+						'annulment'	=> trans('racster.cancellation-available-until'.(Auth::user()->hasRole('coach') ? (Auth::user()->hasRole('manager') ? '-admin' : '-coach') : ''), [
+								'time' => $cancellation_string->translatedFormat((app()->getLocale() === 'et' ? 'd.m \\k\\e\\l\\l H:i' : 'F jS \\a\\t g:i A')),
+							]).((!Auth::user()->hasRole('coach') or Auth::user()->hasRole('manager')) ? '<br />'.trans('racster.on-time-cancellation-gives-you-credit') : ''),
 					];
 
 					return response()->json([

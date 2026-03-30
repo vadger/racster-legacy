@@ -150,7 +150,7 @@
 					modal.find('.modal-footer #open-entry-management').attr('href', '{{ LaravelLocalization::localizeUrl('/manage/entry') }}/' + e.eid);
 @endif
 					modal.find('.modal-footer a[data-attend]').parent().find('small').remove();
-					modal.find('.modal-footer #clientCount').remove();
+					modal.find('.modal-footer #clientCount, .modal-footer #annulment').remove();
 @if (in_array(config('racster.coaches_role'), explode('|', Auth::user()->user_roles)))
 					modal.find('.modal-footer a[data-attend]').attr('href', '#').hide();
 @else
@@ -208,6 +208,9 @@
 					modal.find('.modal-footer a[data-attend]').addClass('disabled').prop('disabled', true).hide();
 @endif
 @endif
+					if (e.pastentry === false && e.annulment != ''){
+						$('<div class="order-last text-center text-secondary fst-italic lh-sm" id="annulment"><small>' + e.annulment + '</small></div>').insertAfter(modal.find('.modal-footer a[data-attend]').parent());
+					}
 				}
 			},
 		}).always(function(){
