@@ -357,7 +357,7 @@ class SubscriptionController extends Controller
 
 		$this->ensureOwner($subscription);
 		$request->validate(['price_id' => ['required','string']]);
-		$subscription->swap($request->price_id);
+		$subscription->noProrate()->swap($request->price_id);
 
 		return back()->with('message', trans('stripe-products.subscription-price-changed'));
 
@@ -371,7 +371,7 @@ class SubscriptionController extends Controller
 
 		$this->ensureOwner($subscription);
 		$request->validate(['quantity' => ['required','integer','min:1','max:100000']]);
-		$subscription->updateQuantity($request->integer('quantity'));
+		$subscription->noProrate()->updateQuantity($request->integer('quantity'));
 
 		return back()->with('message', trans('stripe-products.subscription-quantity-changed'));
 
@@ -523,7 +523,7 @@ class SubscriptionController extends Controller
 		if (Auth::user()->hasRole('admin')){
 
 			$request->validate(['price_id' => ['required','string']]);
-			$subscription->swap($request->price_id);
+			$subscription->noProrate()->swap($request->price_id);
 
 			return back()->with('message', trans('stripe-products.subscription-price-changed-for-email', ['email' => $subscription->user->email]));
 
@@ -540,7 +540,7 @@ class SubscriptionController extends Controller
 		if (Auth::user()->hasRole('admin')){
 
 			$request->validate(['quantity' => ['required','integer','min:1','max:100000']]);
-			$subscription->updateQuantity($request->integer('quantity'));
+			$subscription->noProrate()->updateQuantity($request->integer('quantity'));
 
 			return back()->with('message', trans('stripe-products.subscription-quantity-changed-for-email', ['email' => $subscription->user->email]));
 

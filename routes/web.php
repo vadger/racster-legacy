@@ -77,7 +77,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale()], function(){
 			Route::post('/getPrice', [TimetableController::class, 'getEntryTypePrice']); // AJAX - Get entry type default price
 
 		// Stripe payment hooks
-		Route::get('checkout/continue/{payment}', [CheckoutController::class, 'continue'])->name('checkout.continue');
+		Route::get('checkout/continue/{payment}', [CheckoutController::class, 'continueCheckout'])->name('checkout.continue');
 			Route::post('checkout/oneoff/{product}', [CheckoutController::class, 'oneOff'])->name('checkout.oneoff');
 		Route::get('checkout/attend/{date}', [CheckoutController::class, 'attend_entry_date'])->name('checkout.attend.date');
 		Route::get('checkout/subscribe/{entry}', [CheckoutController::class, 'subscribe_entry'])->name('checkout.subscribe.entry');

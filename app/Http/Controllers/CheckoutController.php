@@ -233,7 +233,7 @@ class CheckoutController extends Controller
 	{
 
 		// Define subscription variables
-		$productPriceId	= $productPriceId ?? $request->input('product_price_id');
+		$productPriceId = $productPriceId ?? $request->input('product_price_id');
 		$unitAmount = $unitAmount ?? $request->input('unit_amount');
 		$currency = $currency ?? $request->input('currency');
 		$interval = $interval ?? $request->input('interval');
@@ -241,11 +241,9 @@ class CheckoutController extends Controller
 		if ($productPriceId){
 
 			// Validate only form request
-			if (!$request->has('product_price_id')){
-				// when passed via arg, skip request validation
-			} else {
+			if ($request->has('product_price_id')) {
 				$request->validate([
-					'product_price_id' => ['required','integer','exists:stripe_product_prices,id'],
+					'product_price_id' => ['required', 'integer', 'exists:stripe_product_prices,id'],
 				]);
 			}
 
@@ -276,16 +274,18 @@ class CheckoutController extends Controller
 				if ($validator->fails()) {
 
 					return back()
-						->with('notice', trans(($unitAmount < 100 ? 'stripe-products.more-than-100-cents' : 'racster.all-fields-are-required')))
+						->with('notice', trans(((int) $unitAmount < 100) ? 'stripe-products.more-than-100-cents' : 'racster.all-fields-are-required'))
 						->withInput($request->all())
 						->withErrors($validator);
 
 				}
 
-			}
+			} else {
 
-			// Basic guard when provided via args
-			abort_unless($unitAmount and $currency and in_array($interval, ['month','year'], true), 422);
+				// Programmatic/internal call guard
+				abort_unless($unitAmount and $currency and in_array($interval, ['month','year'], true), 422);
+
+			}
 
 			$price = $catalog->findOrCreateStripePrice($product, $unitAmount, $currency, $interval);
 
@@ -329,19 +329,23 @@ class CheckoutController extends Controller
 				'payment_id'			=> (string) $payment->id,
 				'laravel_product_id'	=> (string) $product->id,
 				'laravel_price_id'		=> (string) $price->id,
+				'entry_id'				=> !empty($entryId) ? (string) $entryId : '',
+				'date_id'				=> !empty($dateId) ? (string) $dateId : '',
 			],
 			'subscription_data'	=> [
 				'metadata'	=> [
 					'payment_id'			=> (string) $payment->id,
 					'laravel_product_id'	=> (string) $product->id,
 					'laravel_price_id'		=> (string) $price->id,
+					'entry_id'				=> !empty($entryId) ? (string) $entryId : '',
+					'date_id'				=> !empty($dateId) ? (string) $dateId : '',
 				],
 			],
 		]);
 
 		// Save the checkout session ID locally
 		$payment->update([
-			'stripe_checkout_session_id' => $session->id
+			'stripe_checkout_session_id' => $session->id,
 		]);
 
 		if (empty($transactionId)){
@@ -374,166 +378,78 @@ class CheckoutController extends Controller
 
 	/**
 	 * Subscribe user to entry
-	 *
-	 * New flow:
-	 * 1) charge full first month as one-off payment now
-	 * 2) save payment method for off-session usage
-	 * 3) webhook creates future recurring subscription
 	 */
-	public function subscribe_entry(Request $request, $entryID){
-
-		if (!empty($entryID)){
-
-			// Get entry data
-			$entry_data = DB::table('racster_entries as entry')
-				->select('entry.*', 'client.id as cid')
-				->leftJoin('racster_entry_users as client', function($join){
-					$join->on('client.entry_id', '=', 'entry.id');
-					$join->where('client.user_type', 'client');
-					$join->where('client.user_id', Auth::user()->id);
-					$join->where('client.paying', 1);
-					$join->whereNull('client.deleted_at');
-				})
-				->where('entry.id', $entryID)
-				->whereNull('entry.deleted_at')
-				->first();
-
-			if (!empty($entry_data) and !empty($entry_data->entry_monthly_fee)){
-
-				// For first payment use one-off product
-				$product = Product::query()
-					->active()
-					->oneOff()
-					->first();
-
-				if (!empty($product)){
-					return $this->startEntryInitialPaymentCheckout($request, $product, $entry_data);
-				}
-
-			}
-
-		}
-
-		return redirect(route('nouser'))
-			->with('notice', trans('racster.no-rights-for-op'));
-
-	}
-
-	/**
-	 * First full payment for entry subscription flow.
-	 * Webhook will create the recurring subscription after this is paid.
-	 */
-	protected function startEntryInitialPaymentCheckout(Request $request, Product $product, object $entryData)
+	public function subscribe_entry(Request $request, StripeCatalogService $catalog, $entryID)
 	{
 
+		if (empty($entryID)) {
+			return redirect(route('nouser'))
+				->with('notice', trans('racster.no-rights-for-op'));
+		}
+
+		// Get entry data
+		$entry_data = DB::table('racster_entries as entry')
+			->select('entry.*', 'client.id as cid')
+			->leftJoin('racster_entry_users as client', function ($join) {
+				$join->on('client.entry_id', '=', 'entry.id');
+				$join->where('client.user_type', 'client');
+				$join->where('client.user_id', Auth::user()->id);
+				$join->where('client.paying', 1);
+				$join->whereNull('client.deleted_at');
+			})
+			->where('entry.id', $entryID)
+			->whereNull('entry.deleted_at')
+			->first();
+
+		if (empty($entry_data) || empty($entry_data->entry_monthly_fee)) {
+			return redirect(route('nouser'))
+				->with('notice', trans('racster.no-rights-for-op'));
+		}
+
+		// Use subscription product directly
+		$product = Product::query()
+			->active()
+			->subscription()
+			->first();
+
+		if (empty($product)) {
+			return redirect(route('nouser'))
+				->with('notice', 'No active subscription product found.');
+		}
+
 		$user = $request->user();
-		$user->createOrGetStripeCustomer();
 
 		// Base monthly fee is stored in euros
-		$baseAmountEuros = (int) $entryData->entry_monthly_fee;
+		$baseAmountEuros = (int) $entry_data->entry_monthly_fee;
 
-		// Define payment discount
+		// Apply user discount in full euros
 		$discountPercent = max(0, (int) ($user->discount_amount ?? 0));
 
-		// Calculate discount locally in FULL EUROS
 		$discountEuros = 0;
 		if ($discountPercent > 0 && $baseAmountEuros > 0) {
 			$discountEuros = (int) round(($baseAmountEuros * $discountPercent) / 100, 0);
 			$discountEuros = min($discountEuros, $baseAmountEuros);
 		}
 
-		// Final payable amount in euros, then convert to cents
 		$finalAmountEuros = max(0, $baseAmountEuros - $discountEuros);
-		$amount = $finalAmountEuros * 100;
+		$unitAmount = $finalAmountEuros * 100;
 
-		// Define payment currency
 		$currency = strtolower($product->currency ?: config('racster.main-currency'));
+		$interval = $product->interval ?: 'month';
 
-		$payment = UserPayment::create([
-			'user_id'		=> $user->id,
-			'product_id'	=> $product->id,
-			'entry_id'		=> $entryData->id,
-			'amount'		=> $amount,
-			'currency'		=> $currency,
-			'status'		=> 'pending',
-			'metadata'		=> [
-				'flow'						=> 'entry_subscription_initial',
-				'user_discount_percent'		=> (string) $discountPercent,
-				'user_discount_euros'		=> (string) $discountEuros,
-				'user_discount_amount'		=> (string) ($discountEuros * 100), // cents
-				'base_amount_euros'			=> (string) $baseAmountEuros,
-				'final_amount_euros'		=> (string) $finalAmountEuros,
-			],
-		]);
-
-		$stripe = new \Stripe\StripeClient(env('STRIPE_SECRET'));
-
-		$session = $stripe->checkout->sessions->create([
-			'mode'			=> 'payment',
-			'customer'		=> $user->stripe_id,
-			'success_url'	=> route('checkout.success').'?session_id={CHECKOUT_SESSION_ID}',
-			'cancel_url'	=> route('checkout.cancel').'?session_id={CHECKOUT_SESSION_ID}',
-			'automatic_tax'	=> ['enabled' => false],
-
-			'line_items'	=> [[
-				'price_data'	=> [
-					'currency'		=> $currency,
-					'unit_amount'	=> $amount,
-					'product_data'	=> [
-						'name'			=> $product->name,
-						'metadata'		=> [
-							'laravel_product_id'	=> (string) $product->id,
-							'entry_id'				=> (string) $entryData->id,
-						],
-					],
-				],
-				'quantity' => 1,
-			]],
-
-			'metadata' => [
-				'flow'						=> 'entry_subscription_initial',
-				'payment_id'				=> (string) $payment->id,
-				'entry_id'					=> (string) $entryData->id,
-				'laravel_product_id'		=> (string) $product->id,
-				'user_discount_percent'		=> (string) $discountPercent,
-				'user_discount_euros'		=> (string) $discountEuros,
-				'user_discount_amount'		=> (string) ($discountEuros * 100),
-			],
-
-			'invoice_creation' => [
-				'enabled' => true,
-				'invoice_data' => [
-					'metadata' => [
-						'flow'						=> 'entry_subscription_initial',
-						'payment_id'				=> (string) $payment->id,
-						'entry_id'					=> (string) $entryData->id,
-						'laravel_product_id'		=> (string) $product->id,
-						'user_discount_percent'		=> (string) $discountPercent,
-						'user_discount_euros'		=> (string) $discountEuros,
-						'user_discount_amount'		=> (string) ($discountEuros * 100),
-					],
-				],
-			],
-
-			'payment_intent_data' => [
-				'metadata' => [
-					'flow'						=> 'entry_subscription_initial',
-					'payment_id'				=> (string) $payment->id,
-					'entry_id'					=> (string) $entryData->id,
-					'laravel_product_id'		=> (string) $product->id,
-					'user_discount_percent'		=> (string) $discountPercent,
-					'user_discount_euros'		=> (string) $discountEuros,
-					'user_discount_amount'		=> (string) ($discountEuros * 100),
-				],
-				'setup_future_usage' => 'off_session',
-			],
-		]);
-
-		$payment->update([
-			'stripe_checkout_session_id' => $session->id,
-		]);
-
-		return redirect($session->url);
+		return $this->subscribe(
+			$request,
+			$product,
+			$catalog,
+			productPriceId: null,
+			unitAmount: $unitAmount,
+			currency: $currency,
+			interval: $interval,
+			entryId: $entry_data->id,
+			dateId: null,
+			transactionId: null,
+			redir: true,
+		);
 
 	}
 
@@ -571,7 +487,7 @@ class CheckoutController extends Controller
 
 	}
 
-	public function continue(
+	public function continueCheckout(
 		Request $request,
 		UserPayment $payment,
 		StripeCatalogService $catalog
@@ -620,10 +536,11 @@ class CheckoutController extends Controller
 
 			// SUBSCRIPTION
 			$price = ProductPrice::findOrFail($payment->product_price_id);
-			$product = $price->product; // ensure relation exists in your model
+			$product = $price->product;
 
-			// Make sure Stripe product/price exist (no-op if already set)
+			// Make sure Stripe product/price exist
 			$catalog->ensureStripeProduct($product);
+
 			if (!$price->stripe_price_id){
 				$price = $catalog->findOrCreateStripePrice(
 					$product,
@@ -648,12 +565,16 @@ class CheckoutController extends Controller
 					'payment_id'			=> (string) $payment->id,
 					'laravel_product_id'	=> (string) $product->id,
 					'laravel_price_id'		=> (string) $price->id,
+					'entry_id'				=> !empty($payment->entry_id) ? (string) $payment->entry_id : '',
+					'date_id'				=> !empty($payment->date_id) ? (string) $payment->date_id : '',
 				],
 				'subscription_data'	=> [
 					'metadata'	=> [
 						'payment_id'			=> (string) $payment->id,
 						'laravel_product_id'	=> (string) $product->id,
 						'laravel_price_id'		=> (string) $price->id,
+						'entry_id'				=> !empty($payment->entry_id) ? (string) $payment->entry_id : '',
+						'date_id'				=> !empty($payment->date_id) ? (string) $payment->date_id : '',
 					],
 				],
 			]);
@@ -663,20 +584,6 @@ class CheckoutController extends Controller
 			// ONE-OFF
 			$product = $payment->product_id ? Product::find($payment->product_id) : null;
 			$name = $product?->name ?? 'One-off payment';
-
-			$paymentIntentData = [
-				'metadata' => ['payment_id' => (string) $payment->id],
-			];
-
-			// Preserve special entry-subscription initial flow when re-opening an expired session
-			if (($payment->metadata['flow'] ?? null) === 'entry_subscription_initial'){
-				$paymentIntentData['metadata'] = [
-					'flow'			=> 'entry_subscription_initial',
-					'payment_id'	=> (string) $payment->id,
-					'entry_id'		=> (string) $payment->entry_id,
-				];
-				$paymentIntentData['setup_future_usage'] = 'off_session';
-			}
 
 			$session = $stripe->checkout->sessions->create([
 				'mode'					=> 'payment',
@@ -691,7 +598,7 @@ class CheckoutController extends Controller
 							'name'		=> $name,
 							'metadata'	=> [
 								'payment_id'			=> (string) $payment->id,
-								'laravel_product_id'	=> $product?->id,
+								'laravel_product_id'	=> !empty($product?->id) ? (string) $product->id : '',
 							],
 						],
 					],
@@ -699,29 +606,30 @@ class CheckoutController extends Controller
 				]],
 				// Create an invoice so invoice.payment_succeeded fires for one-offs too
 				'invoice_creation'		=> [
-					'enabled' => true,
-					'invoice_data' => [
-						'metadata' => (($payment->metadata['flow'] ?? null) === 'entry_subscription_initial')
-							? [
-								'flow'					=> 'entry_subscription_initial',
-								'payment_id'			=> (string) $payment->id,
-								'entry_id'				=> (string) $payment->entry_id,
-								'laravel_product_id'	=> (string) ($product?->id),
-							]
-							: ['payment_id' => (string) $payment->id],
+					'enabled'		=> true,
+					'invoice_data'	=> [
+						'metadata'	=> [
+							'payment_id'			=> (string) $payment->id,
+							'laravel_product_id'	=> !empty($product?->id) ? (string) $product->id : '',
+							'entry_id'				=> !empty($payment->entry_id) ? (string) $payment->entry_id : '',
+							'date_id'				=> !empty($payment->date_id) ? (string) $payment->date_id : '',
+						],
 					],
 				],
-				'payment_intent_data'	=> $paymentIntentData,
-				'metadata'				=> (($payment->metadata['flow'] ?? null) === 'entry_subscription_initial')
-					? [
-						'flow'					=> 'entry_subscription_initial',
+				'payment_intent_data'	=> [
+					'metadata' => [
 						'payment_id'			=> (string) $payment->id,
-						'entry_id'				=> (string) $payment->entry_id,
-						'laravel_product_id'	=> (string) ($product?->id),
-					]
-					: [
-						'payment_id' => (string) $payment->id,
+						'laravel_product_id'	=> !empty($product?->id) ? (string) $product->id : '',
+						'entry_id'				=> !empty($payment->entry_id) ? (string) $payment->entry_id : '',
+						'date_id'				=> !empty($payment->date_id) ? (string) $payment->date_id : '',
 					],
+				],
+				'metadata'				=> [
+					'payment_id'			=> (string) $payment->id,
+					'laravel_product_id'	=> !empty($product?->id) ? (string) $product->id : '',
+					'entry_id'				=> !empty($payment->entry_id) ? (string) $payment->entry_id : '',
+					'date_id'				=> !empty($payment->date_id) ? (string) $payment->date_id : '',
+				],
 			]);
 
 		}
