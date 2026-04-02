@@ -181,7 +181,7 @@ class TimetableController extends Controller
 			$userInfo = DB::table('users')->where('id', $userID)->whereNull('deleted_at')->first();
 		}
 
-		// Define minimal minutes for attending entry date
+		// Define minimal minutes for cancelling entry date
 		$cancelling_min_period = DB::table('racster_assets')
 			->where('type', 'entry-mincancel')
 			->where('parent', $entry_data->entry_type)
@@ -636,7 +636,7 @@ class TimetableController extends Controller
 						->whereNull('deleted_at')
 						->value('title');
 
-					// Define minimal minutes for attending entry date
+					// Define minimal minutes for cancelling entry date
 					$cancelling_min_period = DB::table('racster_assets')
 						->where('type', 'entry-mincancel')
 						->where('parent', $entry_data->entry_type)
@@ -758,6 +758,7 @@ class TimetableController extends Controller
 						'subscribed'=> (!empty($activeSubscription)),
 						'pastentry'	=> ($cancellation_date <= $this->thistime),
 						'available' => (strtotime('-'.(!empty($attending_min_period) ? (int)$attending_min_period : config('racster.attending-min-period')).' minutes', strtotime($entry_date->entry_start)) >= $this->thistime),
+						'started'	=> (strtotime($entry_date->entry_start) <= $this->thistime),
 						'limfuture'	=> ((
 							strtotime($entry_date->entry_start) > Carbon::now()->startOfWeek()->addWeek()->addDays(config('racster.prebooking-limit'))->timestamp and
 								!in_array($entry_data->entry_type, config('racster.unlimited-prebooking-limit')) and !Auth::user()->hasRole('coach')
