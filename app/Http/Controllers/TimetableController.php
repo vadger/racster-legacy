@@ -2101,7 +2101,7 @@ class TimetableController extends Controller
 				if (!empty($date_clients)){
 
 					// Remove client transactions for the date
-					UserTransactions::deleteTransactionsByDates([$date_id], ['used', 'onhold'], $date_clients);
+					UserTransactions::deleteTransactionsByDates([$date_id], ['used', 'onhold'], array_keys($date_clients));
 
 					// Remove clients from entry
 					DB::table('racster_entry_users')
