@@ -1900,7 +1900,7 @@ class TimetableController extends Controller
 						]);
 
 					// Mark old entry clients transactions as deleted
-					UserTransactions::deleteTransactionsByDates($removed_dates, ['used', 'onhold']);
+					UserTransactions::deleteTransactionsByDates($removed_dates, [/*'used', */'onhold']);
 
 				}
 
@@ -2050,7 +2050,7 @@ class TimetableController extends Controller
 							}elseif (!empty($transaction->id)){
 
 								// Remove client transaction
-								UserTransactions::deleteTransactionsByDates([$date_id], ['used', 'onhold'], [$client]);
+								UserTransactions::deleteTransactionsByDates([$date_id], [/*'used', */'onhold'], [$client]);
 
 							}
 
@@ -2101,7 +2101,7 @@ class TimetableController extends Controller
 				if (!empty($date_clients)){
 
 					// Remove client transactions for the date
-					UserTransactions::deleteTransactionsByDates([$date_id], ['used', 'onhold'], array_keys($date_clients));
+					UserTransactions::deleteTransactionsByDates([$date_id], [/*'used', */'onhold'], array_keys($date_clients));
 
 					// Remove clients from entry
 					DB::table('racster_entry_users')
