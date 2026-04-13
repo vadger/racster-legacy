@@ -448,6 +448,9 @@
 						$('.lengthPicker').closest('.collapse').slideDown('fast', function(){ $(this).addClass('show'); });
 						$('.endPicker').closest('.collapse').slideUp('fast', function(){ $(this).removeClass('show'); });
 						$('.endPicker').val('');
+						if (load === false){
+							$('.lengthPicker').val('');
+						}
 					}else{
 						$('.lengthPicker').closest('.collapse').slideUp('fast', function(){ $(this).removeClass('show'); });
 						$('.endPicker').closest('.collapse').slideDown('fast', function(){ $(this).addClass('show'); });
