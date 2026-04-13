@@ -43,6 +43,7 @@ return [
 	'edit-profile' => 'Edit profile',
 	'my-transactions' => 'Payments',
 	'my-subscriptions' => 'Subscriptions',
+	'update-stripe-billing-info' => 'Payment methods',
 	'my-notifications' => 'Notifications',
 	'logout' => 'Logout',
 

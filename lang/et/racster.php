@@ -43,6 +43,7 @@ return [
 	'edit-profile' => 'Muuda profiili',
 	'my-transactions' => 'Maksed',
 	'my-subscriptions' => 'Püsiajad',
+	'update-stripe-billing-info' => 'Maksemeetodid',
 	'my-notifications' => 'Teavitused',
 	'logout' => 'Logi välja',
 

@@ -82,6 +82,12 @@
 							<a class="dropdown-item" href="{{ route('subscriptions.list') }}">
 								<i class="fas fa-fw fa-btn fa-credit-card"></i> @lang('racster.my-subscriptions')
 							</a>
+							<a class="dropdown-item" href="https://billing.stripe.com/p/login/8x24gB2BW0WIgjTdDygrS00" target="_blank">
+								<i class="fas fa-fw fa-btn fa-file-invoice"></i> @lang('racster.update-stripe-billing-info')
+							</a>
+							<div class="dropdown-divider"></div>
+						</li>
+						<li>
 							<a class="dropdown-item" href="{{ route('notifications.list') }}">
 								<i class="fas fa-fw fa-btn fa-bell"></i> @lang('racster.my-notifications')
 							</a>
