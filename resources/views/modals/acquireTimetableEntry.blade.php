@@ -99,7 +99,7 @@
 								'<span class="text-secondary">' + u.display_name + '</span>' +
 							'</div>';
 						}else{
-							clients += '<div class="col-4 col-lg-2 d-flex flex-column align-items-center">' +
+							clients += '<div class="d-flex flex-column align-items-center mx-2" style="min-width:100px;">' +
 								'<img class="round-user-img mb-1" src="' + (u.profile_image ? '{{ asset('storage/') }}/' + u.profile_image : '{{ asset('images/user-avatar.png') }}') +'" />' +
 								'<span class="text-secondary">' +
 @if (Auth::user()->hasRole('manager'))
@@ -128,7 +128,7 @@
 							'</div>' : '') +
 						'<div class="mb-2 show-coach-info"' + (e.leveldesc ? ' data-info="level" data-desc="' + e.leveldesc + '"' : '') + '><strong class="mb-0">@lang('racster.entry-level')</strong> ' + e.level + '</div>' +
 						(coaches ? '<div class="mb-2 pt-2 border-top"><span class="fw-medium">@lang('racster.entry-coaches-title')</span><div class="text-center fst-italic small text-secondary">@lang('racster.click-on-coach-for-details')</div></div><div class="row flex-nowrap justify-content-center overflow-auto pb-2">' + coaches + '</div>' : '') +
-						(clients ? '<div class="mb-2 pt-2 border-top"><span class="fw-medium">@lang('racster.entry-attendees-title')</span></div><div class="row flex-nowrap justify-content-center overflow-auto pb-2">' + clients + '</ul></div>' : '');
+						(clients ? '<div class="mb-2 pt-2 border-top"><span class="fw-medium">@lang('racster.entry-attendees-title')</span></div><div class="overflow-auto pb-2"><div class="d-inline-flex flex-nowrap justify-content-start">' + clients + '</div></div>' : '');
 @if (!in_array(config('racster.coaches_role'), explode('|', Auth::user()->user_roles)))
 					content +=
 						'<div class="pt-2 border-top" id="entryprice">' +
