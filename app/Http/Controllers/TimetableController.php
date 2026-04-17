@@ -347,19 +347,16 @@ class TimetableController extends Controller
 							if (!empty($paying) and $paying == 1){
 
 								// Get user date transactions balance
-								$date_balance = DB::table('racster_user_transactions')
-									->selectRaw("
-										COALESCE(SUM(CASE WHEN transaction_type = ? THEN transaction_amount ELSE 0 END), 0)
-										- COALESCE(SUM(CASE WHEN transaction_type = ? THEN transaction_amount ELSE 0 END), 0) AS balance
-										", ['used', 'added'])
-									->whereIn('transaction_type', ['added', 'used'])
+								$transaction = DB::table('racster_user_transactions')
+									->where('transaction_type', 'used')
 									->where('date_id', $entry_date->id)
 									->where('user_id', Auth::user()->id)
 									->whereNull('deleted_at')
-									->value('balance');
+									->orderBy('updated_at', 'DESC')
+									->first();
 
 								UserTransactions::createTransaction('added', [
-									'amount'	=> ((!empty($date_balance) and $date_balance > 0) ? $date_balance : $entry_price),
+									'amount'	=> ((!empty($transaction->transaction_amount) and $transaction->transaction_amount > 0) ? $transaction->transaction_amount : $entry_price),
 									'comment'	=> trans('racster.transaction-cancelling-attendance-comment'),
 									'date_id'	=> $entry_date->id,
 									'user_id'	=> Auth::user()->id,
