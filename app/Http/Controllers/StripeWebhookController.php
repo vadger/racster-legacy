@@ -561,22 +561,32 @@ class StripeWebhookController extends CashierWebhookController
 
 				// Get date related transactions
 				$manage_transactions = DB::table('racster_user_transactions')
-					->where('transaction_type', 'added')
+					->where('transaction_type', 'used')
 					->whereIn('date_id', array_keys($manage_dates))
 					->where('user_id', $payment->user_id)
-					->where('stripe_sess_id', $payment->stripe_checkout_session_id)
+					//->where('stripe_sess_id', $payment->stripe_checkout_session_id)
 					->whereNull('deleted_at')
 					->get();
 
+				// Define returned transactions dates array
+				$returned_transaction = [];
+
 				foreach ($manage_transactions as $transaction){
 
-					// Add cancelled transaction amounts back to user
-					\App\Models\UserTransactions::createTransaction('added', [
-						'amount'	=> $transaction->transaction_amount,
-						'comment'	=> trans('racster.transaction-cancelling-attendance-comment'),
-						'date_id'	=> $transaction->date_id,
-						'user_id'	=> $payment->user_id,
-					]);
+					if (empty($returned_transaction) or !in_array($transaction->date_id, $returned_transaction)){
+
+						// Add cancelled transaction amounts back to user
+						\App\Models\UserTransactions::createTransaction('added', [
+							'amount'	=> $transaction->transaction_amount,
+							'comment'	=> trans('racster.transaction-cancelling-attendance-comment'),
+							'date_id'	=> $transaction->date_id,
+							'user_id'	=> $payment->user_id,
+						]);
+
+						// Add date to returned transactions array
+						$returned_transaction[] = $transaction->date_id;
+
+					}
 
 				}
 
@@ -626,6 +636,13 @@ class StripeWebhookController extends CashierWebhookController
 				'metadata'					=> $sub['metadata'] ?? null,
 			]);
 
+		}
+
+		// Mark trialing subscriptions as deleted too
+		$subObj = CashierSubscription::where('stripe_id', $subscriptionId)->first();
+		if ($subObj->stripe_status == 'trialing'){
+			$subObj->stripe_status = 'canceled';
+			$subObj->save();
 		}
 
 		return $this->successMethod();
