@@ -313,7 +313,7 @@ return [
 	'subscription-precharge-notice-email-content' => '
 <p>Hei!</p>
 <p><strong>Sinu järgmine püsimakse tennisetrenni eest toimub 3 päeva pärast, 25. kuupäeval.</strong> Tasu võetakse automaatselt Sinu kontolt broneerimisüsteemi kaudu.</p>
-<p>Kui soovid makse andmeid kontrollida või uuendada vajuta <a href="https://dashboard.stripe.com/login" target="_blank">siia</a>.
+<p>Kui soovid makse andmeid kontrollida või uuendada vajuta <a href="https://billing.stripe.com/p/login/8x24gB2BW0WIgjTdDygrS00" target="_blank">siia</a>.
 <p>Head päeva!<br />Fööniks Tenniseklubi</p>
 	',
 	'subscription-recurring-notice-email-subject' => 'Makse õnnestus!',
@@ -327,7 +327,7 @@ return [
 <p>Hei!</p>
 <p>Palun pane vajalik summa enda pangakontole, et homme automaatne makse õnnestuks.</p>
 <p><strong>Sinu püsimakse tennisetrenni eest 25. kuupäeval ei õnnestunud, kuna kontol polnud piisavalt vahendeid.</strong></p>
-<p>Vajadusel muuda makseandmeid oma kontol <a href="https://dashboard.stripe.com/login" target="_blank">SIIT</a>.</p>
+<p>Vajadusel muuda makseandmeid oma kontol <a href="https://billing.stripe.com/p/login/8x24gB2BW0WIgjTdDygrS00" target="_blank">SIIT</a>.</p>
 <p>Oled kõigeks võimeline!<br />Fööniks Tenniseklubi</p>
 	',
 	'subscription-failed-notice-email-subject-1' => 'Hoiatus! Kui homme makse ei õnnestu, lõpeb trenni püsiaeg!',
@@ -337,7 +337,7 @@ return [
 <p>Ära jää enda püsiajast ilma - pane kindlasti TÄNA vajalik summa enda pangakontole, et homme automaatne makse õnnestuks.</p>
 <p><strong><span style="color:#ff0000;">Kui homme makse ei õnnestu, lõpeb trenni püsiaeg automaatselt</span> ja Sinu trennikoht vabastatakse teistele broneerimiseks!</strong> Nii jääd Sa enda kohast paraku ilma.</p>
 <p>Kui Sul on raskusi tasumisel, palun võta meiega otse ühendust, et leiaksime koos lahenduse.</p>
-<p>Vajadusel muuda makseandmeid oma kontol <a href="https://dashboard.stripe.com/login" target="_blank">SIIT</a>.</p>
+<p>Vajadusel muuda makseandmeid oma kontol <a href="https://billing.stripe.com/p/login/8x24gB2BW0WIgjTdDygrS00" target="_blank">SIIT</a>.</p>
 <p>Edu!<br />Fööniks Tenniseklubi</p>
 ',
 	'subscription-failed-notice-email-subject-2' => 'NB! Sinu püsiaeg on tühistatud - makse ei laekunud!',
