@@ -11,6 +11,8 @@ use App\Models\ScheduledEmail;
 use Carbon\Carbon;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Lang;
 use Laravel\Cashier\Subscription as CashierSubscription;
 
 class SendSubscriptionNotices extends Command
@@ -24,7 +26,10 @@ class SendSubscriptionNotices extends Command
 
 		Log::channel('subsnotices')->info('Sending subscription notices');
 
+		Log::channel('subsnotices')->info('Before precharge');
 		$this->sendPrechargeReminders();
+
+		Log::channel('subsnotices')->info('Before failure sequence');
 		$this->sendFailureSequence();
 
 		Log::channel('subsnotices')->info('Subscription notices processed.');
@@ -230,7 +235,7 @@ class SendSubscriptionNotices extends Command
 							]);
 
 							Log::channel('subsnotices')->info('User subscription canceled', [
-								'dayno' => $step,
+								'dayno' => config('racster.failed-subscription-laststep'),
 								'subscription' => $sub->stripe_id,
 								'email' => $user->email,
 							]);
@@ -238,7 +243,7 @@ class SendSubscriptionNotices extends Command
 						} catch (\Throwable $e) {
 
 							Log::channel('subsnotices')->error('Subscription notices processed.', [
-								'dayno' => $step,
+								'dayno' => config('racster.failed-subscription-laststep'),
 								'subscription' => $sub->stripe_id,
 								'email' => $user->email,
 								'message' => $e->getMessage(),

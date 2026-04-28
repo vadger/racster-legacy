@@ -312,21 +312,21 @@ return [
 	'subscription-precharge-notice-email-subject' => 'Teavitus: Püsimakse toimub 3 päeva pärast',
 	'subscription-precharge-notice-email-content' => '
 <p>Hei!</p>
-<p><strong>Sinu järgmine püsimakse tennisetrenni eest toimub 3 päeva pärast, 25. kuupäeval.</strong> Tasu võetakse automaatselt Sinu kontolt broneerimisüsteemi kaudu.</p>
+<p><strong>Sinu järgmine püsimakse tennisetrenni eest toimub 3 päeva pärast.</strong> Tasu võetakse automaatselt Sinu kontolt broneerimisüsteemi kaudu.</p>
 <p>Kui soovid makse andmeid kontrollida või uuendada vajuta <a href="https://billing.stripe.com/p/login/8x24gB2BW0WIgjTdDygrS00" target="_blank">siia</a>.
 <p>Head päeva!<br />Fööniks Tenniseklubi</p>
 	',
 	'subscription-recurring-notice-email-subject' => 'Makse õnnestus!',
 	'subscription-recurring-notice-email-content' => '
 <p>Hei!</p>
-<p>Sinu püsimakse tennisetrenni eest täna, 25. kuupäeval õnnestus edukalt. Tasu on võetud automaatselt Sinu kontolt.</p>
+<p>Sinu püsimakse tennisetrenni eest täna õnnestus edukalt. Tasu on võetud automaatselt Sinu kontolt.</p>
 <p>Mõnusat päeva Sulle!<br />Fööniks Tenniseklubi</p>
 	',
 	'subscription-failed-notice-email-subject-0' => 'Hoiatus! Makse ebaõnnestus - mittetasumisel püsitrennid lõppevad!',
 	'subscription-failed-notice-email-content-day-0' => '
 <p>Hei!</p>
 <p>Palun pane vajalik summa enda pangakontole, et homme automaatne makse õnnestuks.</p>
-<p><strong>Sinu püsimakse tennisetrenni eest 25. kuupäeval ei õnnestunud, kuna kontol polnud piisavalt vahendeid.</strong></p>
+<p><strong>Sinu püsimakse tennisetrenni eest ei õnnestunud, kuna kontol polnud piisavalt vahendeid.</strong></p>
 <p>Vajadusel muuda makseandmeid oma kontol <a href="https://billing.stripe.com/p/login/8x24gB2BW0WIgjTdDygrS00" target="_blank">SIIT</a>.</p>
 <p>Oled kõigeks võimeline!<br />Fööniks Tenniseklubi</p>
 	',
