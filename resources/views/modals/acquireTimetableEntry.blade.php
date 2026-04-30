@@ -193,7 +193,7 @@
 					} else {
 						if (e.okcredit === false){
 							modal.find('.modal-footer a[data-attend]').addClass('btn-info').text('@lang('racster.pay-for-onetime')');
-							if (e.recurring === false && e.balance > 0){
+							if (e.balance > 0){
 								modal.find('.modal-footer a[data-attend]').parent().prepend('<small class="form-check d-inline-block me-1"><input class="form-check-input" type="checkbox" name="usecredit" id="usecredit" /><label class="form-check-label" for="usecredit">@lang('racster.use-credit')</label></small>');
 							}
 						}
