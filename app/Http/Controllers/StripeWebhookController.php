@@ -357,7 +357,29 @@ class StripeWebhookController extends CashierWebhookController
 							->max('date.entry_ending');
 
 						// Set the furthest entry ending as subscription end date
-						app(SubscriptionEndService::class)->setEndByStripeId($payment->stripe_subscription_id, (!empty($last_date) ? Carbon::parse($last_date)->addDays(1) : null));
+						if (!empty($last_date)) {
+
+							$lastEntryEnd = Carbon::parse($last_date)->addDays(1);
+
+							$stripeSub = $stripe->subscriptions->retrieve($payment->stripe_subscription_id);
+
+							$currentPeriodEnd = Carbon::createFromTimestamp(
+								$stripeSub->current_period_end
+									?? $stripeSub->items->data[0]->current_period_end
+							)->setTimezone(config('app.timezone'));
+
+							// Never end subscription before current paid Stripe period ends
+							$endsAt = $lastEntryEnd->lessThanOrEqualTo($currentPeriodEnd)
+								? $currentPeriodEnd
+								: $lastEntryEnd;
+
+							app(SubscriptionEndService::class)->setEndByStripeId($payment->stripe_subscription_id, $endsAt);
+
+						} else {
+
+							app(SubscriptionEndService::class)->setEndByStripeId($payment->stripe_subscription_id, null);
+
+						}
 
 					}
 

@@ -2230,7 +2230,30 @@ class TimetableController extends Controller
 								->max('date.entry_ending');
 
 							// Add furthest entry date as subscription end date
-							app(SubscriptionEndService::class)->setEndByStripeId($subID, (!empty($last_date) ? Carbon::parse($last_date)->addDays(1) : null));
+							if (!empty($last_date)) {
+
+								$lastEntryEnd = Carbon::parse($last_date)->addDays(1);
+
+								$stripe = new \Stripe\StripeClient(env('STRIPE_SECRET'));
+								$stripeSub = $stripe->subscriptions->retrieve($subID);
+
+								$currentPeriodEnd = Carbon::createFromTimestamp(
+									$stripeSub->current_period_end
+										?? $stripeSub->items->data[0]->current_period_end
+								)->setTimezone(config('app.timezone'));
+
+								// Never end subscription before current paid Stripe period ends
+								$endsAt = $lastEntryEnd->lessThanOrEqualTo($currentPeriodEnd)
+									? $currentPeriodEnd
+									: $lastEntryEnd;
+
+								app(SubscriptionEndService::class)->setEndByStripeId($subID, $endsAt);
+
+							} else {
+
+								app(SubscriptionEndService::class)->setEndByStripeId($subID, null);
+
+							}
 
 						}
 

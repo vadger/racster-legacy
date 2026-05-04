@@ -26,6 +26,7 @@ class SubscriptionEndService
 
 			$this->stripe->subscriptions->update($stripeSubId, [
 				'cancel_at' => null,
+				'proration_behavior' => 'none',
 			]);
 
 			$sub->forceFill(['ends_at' => null])->save();
@@ -40,6 +41,7 @@ class SubscriptionEndService
 
 				$this->stripe->subscriptions->update($stripeSubId, [
 					'cancel_at' => $endsAt->timestamp,
+					'proration_behavior' => 'none',
 				]);
 
 				$sub->forceFill(['ends_at' => $endsAt])->save();
