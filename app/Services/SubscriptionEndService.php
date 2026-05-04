@@ -64,4 +64,30 @@ class SubscriptionEndService
 
 	}
 
+	public function setEndAfterFullPaidPeriod(string $stripeSubId, ?Carbon $lastEntryEnd): Subscription
+	{
+		if ($lastEntryEnd === null) {
+			return $this->setEndByStripeId($stripeSubId, null);
+		}
+
+		$stripeSub = $this->stripe->subscriptions->retrieve($stripeSubId);
+
+		$periodEnd = Carbon::createFromTimestamp(
+			$stripeSub->current_period_end
+				?? $stripeSub->items->data[0]->current_period_end
+		)->setTimezone(config('app.timezone'));
+
+		$interval = $stripeSub->items->data[0]->price->recurring->interval ?? 'month';
+
+		while ($periodEnd->lessThan($lastEntryEnd)) {
+			if ($interval === 'year') {
+				$periodEnd->addYearNoOverflow();
+			} else {
+				$periodEnd->addMonthNoOverflow();
+			}
+		}
+
+		return $this->setEndByStripeId($stripeSubId, $periodEnd);
+	}
+
 }
