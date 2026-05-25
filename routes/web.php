@@ -88,7 +88,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale()], function(){
 		// View user subscriptions
 		Route::get('/subscriptions', [SubscriptionController::class, 'listSelf'])->name('subscriptions.list');
 		Route::get('/subscription/{subscription}', [SubscriptionController::class, 'showSelf'])->name('subscription.show')->whereNumber('subscription');
-			Route::post('/subscription/{subscription}/cancel', [SubscriptionController::class, 'cancelSelf'])->name('subscription.cancel')->whereNumber('subscription');
+			//Route::post('/subscription/{subscription}/cancel', [SubscriptionController::class, 'cancelSelf'])->name('subscription.cancel')->whereNumber('subscription');
 			//Route::post('/subscription/{subscription}/cancel-now', [SubscriptionController::class, 'cancelNowSelf'])->name('subscription.cancel_now')->whereNumber('subscription');
 			//Route::post('/subscription/{subscription}/resume', [SubscriptionController::class, 'resumeSelf'])->name('subscription.resume')->whereNumber('subscription');
 			//Route::post('/subscription/{subscription}/swap', [SubscriptionController::class, 'swapSelf'])->name('subscription.swap')->whereNumber('subscription');

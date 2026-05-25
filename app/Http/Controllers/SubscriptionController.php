@@ -313,7 +313,7 @@ class SubscriptionController extends Controller
 	/**
 	 * Subscription will end at period end
 	 */
-	public function cancelSelf(Request $request, CashierSubscription $subscription)
+/*	public function cancelSelf(Request $request, CashierSubscription $subscription)
 	{
 
 		$this->ensureOwner($subscription);
@@ -321,7 +321,7 @@ class SubscriptionController extends Controller
 
 		return back()->with('message', trans('stripe-products.subscription-will-end-at-period-end'));
 
-	}
+	}*/
 
 	/**
 	 * Cancel subscription immediately for user

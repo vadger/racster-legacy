@@ -268,6 +268,7 @@
 @endif
 
 				</div>
+@if (Auth::user()->hasRole('admin'))
 				<div class="card-footer d-flex flex-column flex-lg-row justify-content-between align-items-center gap-1">
 
 @if ($subscription['stripe_status'] != 'canceled')
@@ -317,6 +318,7 @@
 @endif	
 
 				</div>
+@endif
 			</div>
 
 		</div>
