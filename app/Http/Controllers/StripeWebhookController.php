@@ -509,6 +509,8 @@ class StripeWebhookController extends CashierWebhookController
 			'payload' => $payload,
 		]);
 
+		$response = parent::handleCustomerSubscriptionDeleted($payload);
+
 		$sub = $payload['data']['object'] ?? [];
 
 		$subscriptionId = $sub['id'] ?? null;
@@ -556,6 +558,7 @@ class StripeWebhookController extends CashierWebhookController
 				->where('date.entry_start', '>=', Carbon::now())
 				->where('user.entry_id', $payment->entry_id)
 				->where('user.user_id', $payment->user_id)
+				->where('user.creator_id', '!=', $payment->user_id)
 				->whereNull('user.deleted_at')
 				->pluck('date.client_count', 'date.id')
 				->toArray();
@@ -643,7 +646,7 @@ class StripeWebhookController extends CashierWebhookController
 
 		// Mark trialing subscriptions as deleted too
 		$subObj = CashierSubscription::where('stripe_id', $subscriptionId)->first();
-		if ($subObj->stripe_status == 'trialing'){
+		if ($subObj && $subObj->stripe_status === 'trialing') {
 			$subObj->stripe_status = 'canceled';
 			$subObj->save();
 		}
