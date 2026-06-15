@@ -94,7 +94,7 @@ return [
 	'failed-subscription-maxday' => 3, // Levipro - in case of one month > 27;
 
 	// Define admin e-mail for cancelled failed subscriptions
-	'failed-subscription-admin-email' => 'info@föönikstennis.ee',
+	'failed-subscription-admin-email' => 'info@foonikstennis.ee',
 
 	// Define level video links
 	'level-videos' => [
