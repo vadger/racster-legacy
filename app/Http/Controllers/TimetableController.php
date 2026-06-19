@@ -48,7 +48,8 @@ class TimetableController extends Controller
 			'various_clients'	=> '|in:Y,',
 			'recurring_entry'	=> '|in:Y,',
 			'entry_monthly'		=> 'integer|nullable|required_if:recurring_entry,Y',
-			'client_limit'		=> 'required|integer|min:1',
+			'client_limit'		=> 'required|array|min:1',
+			'client_limit.*'	=> 'required|integer|min:1',
 			'entry_coaches'		=> 'required|array|min:1',
 			'entry_coaches.*'	=> 'required',
 			'entry_start'		=> 'required|array|min:1',
@@ -153,16 +154,31 @@ class TimetableController extends Controller
 			->limit(1)
 			->value('descr');
 
-		// Get coaches related to entry
+		// Check if this date has date-specific coaches
+		$dateSpecificCoaches = DB::table('racster_entry_users')
+			->where('entry_id', $entry_data->id)
+			->where('date_id', $entry_date->id)
+			->where('user_type', 'coach')
+			->whereNull('deleted_at')
+			->exists();
+
+		// Get date-specific coaches if set, otherwise primary entry coaches
 		$entry_coaches = DB::table('racster_entry_users')
 			->selectRaw("users.id, IFNULL(NULLIF(CONCAT(users.first_name, ' ', users.last_name), ' '), users.name) as display_name")
 			->leftJoin('users', function($join){
 				$join->on('users.id', '=', 'racster_entry_users.user_id');
 			})
 			->where('racster_entry_users.entry_id', $entry_data->id)
-			->whereNull('racster_entry_users.date_id')
 			->where('racster_entry_users.user_type', 'coach')
+			->where(function ($query) use ($entry_date, $dateSpecificCoaches) {
+				if ($dateSpecificCoaches) {
+					$query->where('racster_entry_users.date_id', $entry_date->id);
+				} else {
+					$query->whereNull('racster_entry_users.date_id');
+				}
+			})
 			->whereNull('racster_entry_users.deleted_at')
+			->whereNull('users.deleted_at')
 			->orderBy('display_name', 'asc')
 			->pluck('display_name')
 			->toArray();
@@ -606,19 +622,32 @@ class TimetableController extends Controller
 					// Get user transactions balance
 					$transactions_balance = UserTransactions::getBalance();
 
+					// Check if date related coaches exist
+					$dateCoachExists = DB::table('racster_entry_users')
+						->where('entry_id', $entry_data->id)
+						->where('date_id', $entry_date->id)
+						->where('user_type', 'coach')
+						->whereNull('deleted_at')
+						->exists();
+
 					// Get users related to entry
 					$entry_users = DB::table('racster_entry_users as user')
 						->select('users.id', 'users.profile_image', 'users.user_desc', 'user.user_type as utype', 'user.paying as payd', 'user.user_quantity as uqty')
 						->selectRaw("IFNULL(NULLIF(CONCAT(users.first_name, ' ', users.last_name), ' '), users.name) as display_name")
 						->selectRaw("IFNULL(NULLIF(users.first_name, ' '), users.name) as client_name")
 						->selectRaw("CONCAT(users.mobile_country_code, users.mobile_number) as phone")
-						->leftJoin('users', function($join){
-							$join->on('users.id', '=', 'user.user_id');
-						})
+						->leftJoin('users', 'users.id', '=', 'user.user_id')
 						->where('user.entry_id', $entry_data->id)
-						->where(function ($query) use ($entry_date) {
-							$query->where('user.date_id', $entry_date->id);
-							$query->orWhere('user.user_type', 'coach');
+						->where(function ($query) use ($entry_date, $dateCoachExists) {
+							$query->where(function ($q) use ($entry_date) {
+								$q->where('user.user_type', 'client')
+									->where('user.date_id', $entry_date->id);
+							});
+
+							$query->orWhere(function ($q) use ($entry_date, $dateCoachExists) {
+								$q->where('user.user_type', 'coach')
+									->where('user.date_id', $dateCoachExists ? $entry_date->id : null);
+							});
 						})
 						->whereIn('user.user_type', ['coach', 'client'])
 						->whereNull('user.deleted_at')
@@ -1181,16 +1210,43 @@ class TimetableController extends Controller
 
 			}
 
-			// Limit entries by coach filter
+			// Limit entries by effective coach filter:
+			// date-specific coaches first, otherwise primary coaches
 			if (Session::has('timetable-filter-coach')){
 				$entries_query
-					->whereExists(function ($query) {
-						$query->select(DB::raw(1))
-							->from('racster_entry_users')
-								->whereColumn('racster_entry_users.entry_id', 'date.entry_id')
-								->where('racster_entry_users.user_type', 'coach')
-								->where('racster_entry_users.user_id', Session::get('timetable-filter-coach'))
-								->whereNull('racster_entry_users.deleted_at');
+					->where(function ($query) {
+
+						$query->whereExists(function ($subquery) {
+							$subquery->select(DB::raw(1))
+								->from('racster_entry_users as date_coach')
+								->whereColumn('date_coach.entry_id', 'date.entry_id')
+								->whereColumn('date_coach.date_id', 'date.id')
+								->where('date_coach.user_type', 'coach')
+								->where('date_coach.user_id', Session::get('timetable-filter-coach'))
+								->whereNull('date_coach.deleted_at');
+						});
+
+						$query->orWhere(function ($fallbackQuery) {
+							$fallbackQuery
+								->whereNotExists(function ($subquery) {
+									$subquery->select(DB::raw(1))
+										->from('racster_entry_users as any_date_coach')
+										->whereColumn('any_date_coach.entry_id', 'date.entry_id')
+										->whereColumn('any_date_coach.date_id', 'date.id')
+										->where('any_date_coach.user_type', 'coach')
+										->whereNull('any_date_coach.deleted_at');
+								})
+								->whereExists(function ($subquery) {
+									$subquery->select(DB::raw(1))
+										->from('racster_entry_users as primary_coach')
+										->whereColumn('primary_coach.entry_id', 'date.entry_id')
+										->whereNull('primary_coach.date_id')
+										->where('primary_coach.user_type', 'coach')
+										->where('primary_coach.user_id', Session::get('timetable-filter-coach'))
+										->whereNull('primary_coach.deleted_at');
+								});
+						});
+
 					});
 			}
 
@@ -1587,6 +1643,61 @@ class TimetableController extends Controller
 	}
 
 	/**
+	 * Change date specific coaches
+	 */
+	public function updateDateCoaches(Request $request)
+	{
+		if (!request()->ajax() || !Auth::user()->hasRole('manager')) {
+			return response()->json(['success' => false, 'msg' => trans('racster.no-rights-for-op')]);
+		}
+
+		$data = $request->validate([
+			'date_id' => ['required', 'integer', 'exists:racster_entry_dates,id'],
+			'coaches' => ['nullable', 'array'],
+			'coaches.*' => ['integer', 'exists:users,id'],
+		]);
+
+		$date = DB::table('racster_entry_dates')
+			->where('id', $data['date_id'])
+			->whereNull('deleted_at')
+			->first();
+
+		if (!$date) {
+			return response()->json(['success' => false]);
+		}
+
+		$coachIds = array_values(array_unique($data['coaches'] ?? []));
+
+		DB::transaction(function () use ($date, $coachIds) {
+			DB::table('racster_entry_users')
+				->where('entry_id', $date->entry_id)
+				->where('date_id', $date->id)
+				->where('user_type', 'coach')
+				->whereNull('deleted_at')
+				->update([
+					'updated_at' => Carbon::now(),
+					'deleted_at' => Carbon::now(),
+				]);
+
+			foreach ($coachIds as $coachId) {
+				DB::table('racster_entry_users')->insert([
+					'creator_id' => Auth::id(),
+					'entry_id' => $date->entry_id,
+					'date_id' => $date->id,
+					'user_type' => 'coach',
+					'user_id' => $coachId,
+					'user_quantity' => 1,
+					'paying' => 0,
+					'created_at' => Carbon::now(),
+					'updated_at' => Carbon::now(),
+				]);
+			}
+		});
+
+		return response()->json(['success' => true]);
+	}
+
+	/**
 	 * Manage timetable entry data
 	 */
 	public function manageEntryData(Request $request, $eid = null)
@@ -1678,9 +1789,7 @@ class TimetableController extends Controller
 						$entry->date_id[] = $date->id;
 
 						// Define entry client limit
-						if (!property_exists($entry, 'client_limit')){
-							$entry->client_limit = ((!empty($date->client_limit) and $date->client_limit > 0) ? $date->client_limit : 0);
-						}
+						$entry->client_limit[] = ((!empty($date->client_limit) && $date->client_limit > 0) ? $date->client_limit : 1);
 
 						// Define entry price
 						if (!property_exists($entry, 'entry_price')){
@@ -1742,7 +1851,11 @@ class TimetableController extends Controller
 					->get();
 
 				foreach ($entry_users as $user){
-					$users_list[$user->user_type][$user->user_id] = $user;
+					if ($user->user_type === 'coach' && !is_null($user->date_id)) {
+						$users_list['date_coach'][$user->date_id][$user->user_id] = $user;
+					} else {
+						$users_list[$user->user_type][$user->user_id] = $user;
+					}
 				}
 
 			}
@@ -1910,6 +2023,7 @@ class TimetableController extends Controller
 				// Get coaches related to entry
 				$entry_coaches = DB::table('racster_entry_users')
 					->where('entry_id', $eid)
+					->whereNull('date_id')
 					->where('user_type', 'coach')
 					->whereNull('deleted_at')
 					->pluck('id', 'user_id')
@@ -1942,7 +2056,11 @@ class TimetableController extends Controller
 					'entry_length'		=> ((!empty($request->input('entry_length')) and !empty($request->input('entry_length.'.$dcnt))) ? $request->input('entry_length.'.$dcnt) : NULL),
 					'entry_location'	=> ((!empty($request->input('entry_location')) and !empty($request->input('entry_location.'.$dcnt))) ? $request->input('entry_location.'.$dcnt) : NULL),
 					'private_entry'		=> ((!empty($request->input('private_entry')) and !empty($request->input('private_entry.'.$dcnt)) and $request->input('private_entry.'.$dcnt) == 'Y') ? 1 : 0),
-					'client_limit'		=> ((!empty($request->input('client_limit')) and $request->input('client_limit') > 0) ? $request->input('client_limit') : NULL),
+					'client_limit' => (
+						!empty($request->input('client_limit.'.$dcnt)) && $request->input('client_limit.'.$dcnt) > 0
+							? $request->input('client_limit.'.$dcnt)
+							: 1
+					),
 					'client_count'		=> ((!empty($request->input('entry_clients')) and !empty($request->input('entry_clients.'.$dcnt))) ? count($request->input('entry_clients.'.$dcnt)) : NULL),
 					'entry_price'		=> ((!empty($request->input('entry_price')) and $request->input('entry_price') > 0) ? $request->input('entry_price') : config('racster.default-price')),
 					'extra_price'		=> ((!empty($request->input('extra_price')) and !empty($request->input('extra_price')) and $request->input('extra_price') == 'Y') ? 1 : 0),
@@ -2156,10 +2274,11 @@ class TimetableController extends Controller
 				// Mark coaches removed from entry as deleted
 				DB::table('racster_entry_users')
 					->whereIn('id', $entry_coaches)
+					->whereNull('date_id')
 					->whereNull('deleted_at')
 					->update([
-						'updated_at'	=> Carbon::now(),
-						'deleted_at'	=> Carbon::now(),
+						'updated_at' => Carbon::now(),
+						'deleted_at' => Carbon::now(),
 					]);
 
 			}

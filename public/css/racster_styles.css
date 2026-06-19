@@ -1018,6 +1018,17 @@ body.lang-en #recurring-entry > div.private span {
 	color: #00bf63;
 }
 
+.manageDateCoaches {
+	position: relative;
+}
+
+.manageDateCoaches .badge {
+	position: absolute;
+	top: 50%;
+	left: 0;
+	transform: translate(0, -50%);
+}
+
 /**
  * Media screens design
  */

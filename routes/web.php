@@ -124,6 +124,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale()], function(){
 			Route::post('/createDates', [TimetableController::class, 'createRecurringDates']); // AJAX - Create recurring dates array
 			Route::post('/acquirePastDates', [TimetableController::class, 'acquireRecurringEntryPastDates']); // AJAX - Acquire timetable recurring entry past dates
 			Route::post('/acquireEntrySubscriptions', [TimetableController::class, 'acquireRecurringEntrySubscriptions']); // AJAX - Acquire timetable recurring entry subscriptions
+			Route::post('/manage/date-coaches', [TimetableController::class, 'updateDateCoaches']);
 
 		Route::get('/assets', [AssetsController::class, 'showAssetsList'])->name('assets'); // Show assets list
 			Route::post('/activeAsset', [AssetsController::class, 'manageActiveAsset']); // AJAX - Update active asset

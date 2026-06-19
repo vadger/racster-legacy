@@ -19,10 +19,25 @@ class EntryNotificationService
 	public function usersToNotifyForEntryDate(RacsterEntry $entry, RacsterEntryDate $entryDate): Collection
 	{
 
+		// Check if date specific coaches exist
+		$dateCoachExists = DB::table('racster_entry_users')
+			->where('entry_id', $entry->id)
+			->where('date_id', $entryDate->id)
+			->where('user_type', 'coach')
+			->whereNull('deleted_at')
+			->exists();
+
 		// Get entry coach IDs
 		$coachIds = DB::table('racster_entry_users')
 			->where('entry_id', $entry->id)
 			->where('user_type', 'coach')
+			->where(function ($query) use ($entryDate, $dateCoachExists) {
+				if ($dateCoachExists) {
+					$query->where('date_id', $entryDate->id);
+				} else {
+					$query->whereNull('date_id');
+				}
+			})
 			->whereNull('deleted_at')
 			->pluck('user_id');
 

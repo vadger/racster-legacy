@@ -95,15 +95,6 @@
 											<option value="0"{{ ((old('client_level') == '0' || (empty(old()) && !empty($entry_data) && empty($entry_data->client_level))) ? ' selected' : '') }}>@lang('racster.for-all-client-levels')</option>
 										</select>
 									</div>
-								</div>
-
-								<div class="row mb-1">
-									<label class="col-5 col-sm-3 col-lg-4 col-xl-3 col-form-label fw-bold" for="client_limit">
-										@lang('racster.field-client-limit')*
-									</label>
-									<div class="col-7 col-sm-4 col-lg-8 col-xl-5">
-										<input class="form-control{{ $errors->has('client_limit') ? ' is-invalid' : '' }}" value="{{ (old('client_limit') ? old('client_limit') : ((!empty($entry_data) && !empty($entry_data->client_limit)) ? $entry_data->client_limit : '1')) }}" type="number" step="1" min="1" name="client_limit" id="client_limit" autocomplete="off" />
-									</div>
 									<div class="offset-5 col-7 offset-sm-0 col-sm-5 offset-lg-4 col-lg-8 offset-xl-0 col-xl-4">
 										<div class="form-check mt-1 p-0">
 											<input class="form-check-input" type="checkbox" name="various_clients" value="Y" id="various_clients"{{ (((!empty(old('various_clients')) && old('various_clients') == 'Y') || (empty(old()) && !empty($entry_data) && $entry_data->various_clients == '1')) ? ' checked' : '') }} />
@@ -233,6 +224,46 @@
 @endif
 												</select>
 											</div>
+											<div class="col-12 mt-1">
+												<div class="input-group input-group-sm">
+													<span class="input-group-text">@lang('racster.field-client-limit')</span>
+													<input
+														class="form-control dateLimitPicker{{ $errors->has('client_limit.'.$dcnt) ? ' is-invalid' : '' }}"
+														value="{{ old('client_limit.'.$dcnt) ?? ((!empty($entry_data->client_limit[$dcnt])) ? $entry_data->client_limit[$dcnt] : 1) }}"
+														type="number"
+														step="1"
+														min="1"
+														name="client_limit[{{ $dcnt }}]"
+														id="client_limit_{{ $dcnt }}"
+														autocomplete="off"
+														{{ ((!empty(old('entry_type')) || (empty(old()) && !empty($entry_data) && !empty($entry_data->entry_type))) ? '' : ' disabled') }}
+													/>
+												</div>
+											</div>
+											<div class="col-12 mt-1">
+												@if (!empty($entry_data) && !empty($entry_data->date_id) && array_key_exists($dcnt, $entry_data->date_id))
+													<a href="#"
+														class="btn btn-sm btn-outline-{{ ((!empty($users['date_coach'][$entry_data->date_id[$dcnt]])) ? 'info' : 'secondary') }} d-block manageDateCoaches"
+														data-bs-toggle="modal"
+														data-bs-target="#manage-date-coaches"
+														data-date-id="{{ $entry_data->date_id[$dcnt] }}">
+														@lang('racster.change-coaches')
+														@if (!empty($users['date_coach'][$entry_data->date_id[$dcnt]]))
+															<span class="badge text-info date-coach-badge">
+																<i class="fas fa-check"></i>
+															</span>
+														@else
+															<span class="badge text-info date-coach-badge d-none">
+																<i class="fas fa-check"></i>
+															</span>
+														@endif
+													</a>
+												@else
+													<button type="button" class="btn btn-sm btn-outline-secondary d-block w-100" disabled>
+														@lang('racster.change-coaches')
+													</button>
+												@endif
+											</div>
 										</div>
 
 									</div>
@@ -350,6 +381,7 @@
 	@include('modals.viewActiveSubscriptions')
 @endif
 @endif
+@include('modals.changeDateBasedCoaches')
 
 @endsection
 
@@ -406,9 +438,37 @@
 			$('.main-alert.alert-success').not('.collapse').delay(3000).fadeOut('slow');
 			$('[data-toggle="tooltip"]').tooltip({ container: 'body', html: true });
 
+			function updateClientSearchState(line){
+				var lim = parseInt(line.find('.dateLimitPicker').val(), 10) || 1,
+					count = line.find('.date-clients li').length,
+					full = count >= lim,
+					over = count > lim,
+					search = line.find('input[name="search_client"]');
+
+				search.prop("readonly", full);
+
+				if (full){
+					search.val('');
+					line.find('.date-search').html('').hide();
+				}else{
+					line.find('.date-search').show();
+				}
+
+				line.find('.too-many-clients-alert').remove();
+
+				line.find('.dateLimitPicker').toggleClass('is-invalid', over);
+				line.find('.date-clients').toggleClass('border border-danger rounded p-1', over);
+
+				if (over){
+					line.find('.date-search').after(
+						'<div class="alert alert-danger too-many-clients-alert py-1 px-2 mb-1 small text-center">@lang('racster.too-many-clients')</div>'
+					);
+				}
+			}
+
 			function checkClientChanges(){
 
-				var clist = '', lim = $('#client_limit').val();
+				var clist = '';
 
 				$.each($('.entry-date-line'), function(index){
 
@@ -423,12 +483,8 @@
 
 					}
 
-					// Disable client search for datest with allowed count of clients
-					if ($(this).find('.date-clients li').length >= lim){
-						$(this).find('input[name="search_client"]').prop("readonly", true);
-					}else{
-						$(this).find('input[name="search_client"]').prop("readonly", false);
-					}
+					// Disable client search for dates with allowed count of clients
+					updateClientSearchState($(this));
 
 				});
 
@@ -442,7 +498,7 @@
 				var _val = $('#entry_type').find('option:selected').val();
 				$('.lengthPicker option:not([value=""])').hide('fast', function(){ $(this).prop("disabled", true); });
 				if (_val){
-					$('.startPicker, .endPicker, .lengthPicker, .locationPicker, .privacyPicker, input[name="search_client"], #recurring_entry').prop("disabled", false);
+					$('.startPicker, .endPicker, .lengthPicker, .locationPicker, .dateLimitPicker, .privacyPicker, input[name="search_client"], #recurring_entry').prop("disabled", false);
 					$('.lengthPicker option[data-format="' + _val + '"]:not([value=""])').show('fast', function(){ $(this).prop("disabled", false); });
 					if ($('.lengthPicker option[data-format="' + _val + '"]:not([value=""])').length > 0){
 						$('.lengthPicker').closest('.collapse').slideDown('fast', function(){ $(this).addClass('show'); });
@@ -468,7 +524,7 @@
 						}
 					}
 				}else{
-					$('.startPicker, .endPicker, .lengthPicker, .locationPicker, .privacyPicker, input[name="search_client"], #recurring_entry').prop("disabled", true);
+					$('.startPicker, .endPicker, .lengthPicker, .locationPicker, .dateLimitPicker, .privacyPicker, input[name="search_client"], #recurring_entry').prop("disabled", true);
 					$('.endPicker, .lengthPicker').closest('.collapse').slideUp('fast', function(){ $(this).removeClass('show'); });
 					$('.endPicker, .lengthPicker').val('');
 				}
@@ -543,6 +599,7 @@
 					line.find('.endPicker').attr('id', 'entry_ending_' + lcnt).attr('name', 'entry_ending[' + lcnt + ']');
 					line.find('.lengthPicker').attr('id', 'entry_length_' + lcnt).attr('name', 'entry_length[' + lcnt + ']');
 					line.find('.locationPicker').attr('id', 'entry_location_' + lcnt).attr('name', 'entry_location[' + lcnt + ']');
+					line.find('.dateLimitPicker').attr('id', 'client_limit_' + lcnt).attr('name', 'client_limit[' + lcnt + ']');
 					line.find('.privacyPicker').attr('id', 'private_entry_' + lcnt).attr('name', 'private_entry[' + lcnt + ']');
 					line.find('.privacyPicker ~ label').attr('for', 'private_entry_' + lcnt);
 					$.each(line.find('.clientPicker'), function(index){
@@ -596,16 +653,25 @@
 				$clone.find('.startPicker').val('{{ date('d.m.Y H:i', $basenow) }}');
 				$clone.find('.endPicker').val('{{ date('d.m.Y H:i', strtotime('+1 hour', $basenow)) }}');
 				$clone.find('.lengthPicker, .locationPicker, input[name="search_client"]').val('');
+				$clone.find('.dateLimitPicker').val(lastline.find('.dateLimitPicker').val() || '1');
 				$clone.find('.privacyPicker').prop("checked", false);
-				$clone.find('.date-search').html('');
+				$clone.find('.date-search').html('').show();
+				$clone.find('.too-many-clients-alert').remove();
+				$clone.find('.date-clients').removeClass('border border-danger rounded p-1');
 				if ($('#various_clients').is(':checked')){
 					$clone.find('.date-clients ul').html('');
 				}
 				$clone.find('.is-invalid').removeClass('is-invalid');
 				$clone.find('input[name^="entry_lid"]').val('');
+				$clone.removeAttr('data-lid');
+				$clone.find('.manageDateCoaches')
+					.replaceWith(
+						'<button type="button" class="btn btn-sm btn-outline-secondary d-block w-100" disabled>@lang('racster.change-coaches')</button>'
+					);
 				$($clone).insertAfter(lastline);
 				$('.entry-date-line .delDateLine').closest('div').slideDown();
 				resetDateLines();
+				checkClientChanges();
 			});
 
 			// Delete entry date line
@@ -639,23 +705,18 @@
 				}
 			});
 
-			// Show / hide recurring dates selection button
-			$(document).on('input', 'input[name="client_limit"]', function(e){
-				var lim = $(this).val();
-				e.stopPropagation(); e.preventDefault();
-				$.each($('.entry-date-line'), function(index){
-					if ($(this).find('.date-clients li').length >= lim){
-						$(this).find('input[name="search_client"]').val('').prop("readonly", true);
-					}else{
-						$(this).find('input[name="search_client"]').val('').prop("readonly", false);
-					}
-				});
+			// Show / hide client search by client limit
+			$(document).on('input', '.dateLimitPicker', function(e){
+				e.stopPropagation();
+				e.preventDefault();
+
+				updateClientSearchState($(this).closest('.entry-date-line'));
 			});
 
 			// Show / hide clients selection with various clients
 			$(document).on('input', '#various_clients', function(){
-				var _sel = $(this).is(':checked'), rcnt = 0, lim = $('#client_limit').val();
-				$.each($('.entry-date-line'), function(index){ console.log($(this).data('lid'));
+				var _sel = $(this).is(':checked'), rcnt = 0;
+				$.each($('.entry-date-line'), function(index){
 					if (_sel === true || rcnt < 1){
 						$(this).find('input[name="search_client"]').parent().addClass('show');
 					}else{
@@ -673,11 +734,7 @@
 						$(this).find('.date-clients').html($clone);
 						$(this).find('.date-search').html('');
 					}
-					if ($(this).find('.date-clients li').length >= lim){
-						$(this).find('input[name="search_client"]').val('').prop("readonly", true);
-					}else{
-						$(this).find('input[name="search_client"]').val('').prop("readonly", false);
-					}
+					updateClientSearchState($(this));
 					rcnt++;
 				});
 			});
@@ -702,7 +759,7 @@
 											list += '<a href="#" class="list-group-item list-group-item-action list-group-item-secondary p-1" data-uid="' + k + '" data-name="' + c + '">' + c + '</a>';
 										}
 									});
-									sel.parent().find('.date-search').html((list !== '' ? '<div class="list-group list-group-flush mb-1">' + list + '</ul>' : ''));
+									sel.parent().find('.date-search').html((list !== '' ? '<div class="list-group list-group-flush mb-1">' + list + '</div>' : ''));
 								}else{
 									sel.parent().find('.date-search').html('');
 								}
@@ -728,7 +785,7 @@
 			// Add new clients to date and client selection
 			$(document).on('click', '.date-search a', function(e){
 				e.stopPropagation(); e.preventDefault();
-				var _btn = $(this), lim = $('#client_limit').val();
+				var _btn = $(this);
 				if (!$('#various_clients').is(':checked')){
 					$.each($('.entry-date-line .date-clients'), function(index){
 						if ($(this).find('li').length > 0){
@@ -746,9 +803,7 @@
 								'</li>';
 							$(this).find('ul').html(_new);
 						}
-						if ($(this).find('li').length >= lim){
-							$(this).closest('.collapse').find('input[name="search_client"]').val('').prop("readonly", true);
-						}
+						updateClientSearchState($(this).closest('.entry-date-line'));
 					});
 				}else{
 					if (_btn.closest('.collapse').find('.date-clients li').length > 0){
@@ -766,33 +821,37 @@
 							'</li>';
 						_btn.closest('.collapse').find('.date-clients ul').html(_new);
 					}
-					if (_btn.closest('.collapse').find('.date-clients li').length >= lim){
-						_btn.closest('.collapse').find('input[name="search_client"]').val('').prop("readonly", true);
-					}
+					updateClientSearchState(_btn.closest('.entry-date-line'));
 				}
-				_btn.parent().remove();
+				_btn.remove();
 			});
 
 			// Without various clients list make client changes for all dates
 			$(document).on('click', 'input[name^="entry_clients"]', function(e){
 				if (confirm("@lang('racster.sure-to-remove-the-client-from-entry-date')")) {
-					var _val = $(this), lim = $('#client_limit').val();
+					var _val = $(this);
 					if (!$('#various_clients').is(':checked')){
 						$.each($('.clientPicker[value="' + _val.val() + '"]'), function(index){
 							$(this).prop("checked", _val.prop("checked"));
 							if (_val.prop("checked") === false){
-								$(this).closest('li').fadeOut('fast', function(){ $(this).remove(); });
-							}
-							if ($(this).closest('.date-clients').find('li').length >= lim){
-								$(this).closest('.collapse').find('input[name="search_client"]').val('').prop("readonly", false);
+								$(this).closest('li').fadeOut('fast', function(){
+									var line = $(this).closest('.entry-date-line');
+									$(this).remove();
+									updateClientSearchState(line);
+								});
+							}else{
+								updateClientSearchState($(this).closest('.entry-date-line'));
 							}
 						});
 					}else{
 						if (_val.prop("checked") === false){
-							_val.closest('li').fadeOut('fast', function(){ $(this).remove(); });
-						}
-						if (_val.closest('.collapse').find('.date-clients li').length >= lim){
-							_val.closest('.collapse').find('input[name="search_client"]').val('').prop("readonly", false);
+							_val.closest('li').fadeOut('fast', function(){
+								var line = $(this).closest('.entry-date-line');
+								$(this).remove();
+								updateClientSearchState(line);
+							});
+						}else{
+							updateClientSearchState(_val.closest('.entry-date-line'));
 						}
 					}
 					if (_val.prop("checked") === false && !_val.closest('.date-clients').find('.alert').length){
