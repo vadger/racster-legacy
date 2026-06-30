@@ -630,6 +630,34 @@ class TimetableController extends Controller
 						->whereNull('deleted_at')
 						->exists();
 
+					// Guard direct AJAX access for coaches.
+					// If date-specific coaches exist, coach must be assigned to this date.
+					// If not, coach must be one of the primary/default entry coaches.
+					if (Auth::user()->hasRole('coach') and !Auth::user()->hasRole('manager')) {
+
+						$coachAllowed = DB::table('racster_entry_users')
+							->where('entry_id', $entry_data->id)
+							->where('user_type', 'coach')
+							->where('user_id', Auth::user()->id)
+							->where(function ($query) use ($entry_date, $dateCoachExists) {
+								if ($dateCoachExists) {
+									$query->where('date_id', $entry_date->id);
+								} else {
+									$query->whereNull('date_id');
+								}
+							})
+							->whereNull('deleted_at')
+							->exists();
+
+						if (!$coachAllowed) {
+							return response()->json([
+								'success' => false,
+								'msg' => trans('racster.no-rights-for-op'),
+							]);
+						}
+
+					}
+
 					// Get users related to entry
 					$entry_users = DB::table('racster_entry_users as user')
 						->select('users.id', 'users.profile_image', 'users.user_desc', 'user.user_type as utype', 'user.paying as payd', 'user.user_quantity as uqty')
@@ -1172,23 +1200,47 @@ class TimetableController extends Controller
 						->limit(1);
 				}, 'onhold');
 
-			// Add additional tables
+			// Add additional tables - get entry
 			$entries_query
 				->leftJoin('racster_entries as entry', function($join){
 					$join->on('entry.id', '=', 'date.entry_id');
 					$join->whereNull('entry.deleted_at');
 				});
 
-			// Add additional tables
+			// Add additional tables - get by user
 			$entries_query
 				->leftJoin('racster_entry_users as client', function($join){
 					$join->on('client.entry_id', '=', 'date.entry_id');
+
 					if (Auth::user()->hasRole('coach') and !Auth::user()->hasRole('manager')){
+
 						$join->where('client.user_type', 'coach');
+						$join->where('client.user_id', Auth::user()->id);
+
+						$join->where(function ($q) {
+							$q->whereColumn('client.date_id', 'date.id')
+								->orWhere(function ($fallback) {
+									$fallback->whereNull('client.date_id')
+										->whereRaw("
+											NOT EXISTS (
+												SELECT 1
+												FROM racster_entry_users AS any_date_coach
+												WHERE any_date_coach.entry_id = date.entry_id
+												  AND any_date_coach.date_id = date.id
+												  AND any_date_coach.user_type = 'coach'
+												  AND any_date_coach.deleted_at IS NULL
+											)
+										");
+								});
+						});
+
 					}else{
+
 						$join->on('client.date_id', '=', 'date.id');
 						$join->where('client.user_type', 'client');
+
 					}
+
 					$join->where('client.user_id', Auth::user()->id);
 					$join->whereNull('client.deleted_at');
 				});
