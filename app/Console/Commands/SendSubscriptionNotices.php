@@ -39,7 +39,7 @@ class SendSubscriptionNotices extends Command
 	}
 
 	/**
-	 * 1 day before next charge for active subscriptions.
+	 * 3 days before next charge for active subscriptions.
 	 */
 	protected function sendPrechargeReminders(): void
 	{
@@ -136,7 +136,9 @@ class SendSubscriptionNotices extends Command
 				$failedAt = Carbon::parse($payment->failed_at)->startOfSecond();
 				$days = $failedAt->diffInDays($now);
 
-				$currentStep = $payment->failed_notice_sent;
+				$currentStep = is_null($payment->failed_notice_sent)
+					? null
+					: (int) $payment->failed_notice_sent;
 
 				if ($days < config('racster.failed-subscription-maxday')){
 

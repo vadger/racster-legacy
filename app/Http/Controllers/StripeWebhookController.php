@@ -417,15 +417,21 @@ class StripeWebhookController extends CashierWebhookController
 		// Find the payment row we should update
 		$payment = null;
 
-		if ($paymentId){
-			$payment = UserPayment::find($paymentId);
-		}
-		if (!$payment and $subscriptionId){
-			$payment = UserPayment::where('stripe_subscription_id', $subscriptionId)->latest('id')->first();
-		}
-		if (!$payment and $invoiceId){
+		if ($invoiceId) {
 			$payment = UserPayment::where('stripe_invoice_id', $invoiceId)->first();
 		}
+
+		if (!$payment && $paymentId) {
+			$payment = UserPayment::find($paymentId);
+		}
+
+		if (!$payment && $subscriptionId) {
+			$payment = UserPayment::where('stripe_subscription_id', $subscriptionId)->latest('id')->first();
+		}
+
+		$isNewFailureSequence = !$payment
+			|| $payment->status !== 'failed'
+			|| empty($payment->failed_at);
 
 		$data = [
 			'user_id'					=> $payment?->user_id ?? $userId,
@@ -435,13 +441,16 @@ class StripeWebhookController extends CashierWebhookController
 			'amount'					=> $invoice['amount_due'] ?? $payment?->amount,
 			'currency'					=> $invoice['currency'] ?? $payment?->currency,
 			'status'					=> 'failed',
-			'failed_at'					=> Carbon::now(),
-			'failed_notice_sent'		=> null,
 			'billing_reason'			=> $invoice['billing_reason'] ?? $payment?->billing_reason,
-			'metadata'					=> (!empty($subscriptionId) ? $invoice['parent']['subscription_details']['metadata'] : ($invoice['metadata'] ?? $payment?->metadata)),
+			'metadata'					=> !empty($subscriptionId) ? ($invoice['parent']['subscription_details']['metadata'] ?? $payment?->metadata) : ($invoice['metadata'] ?? $payment?->metadata),
 		];
 
-		if ($payment){
+		if ($isNewFailureSequence) {
+			$data['failed_at'] = Carbon::now();
+			$data['failed_notice_sent'] = null;
+		}
+
+		if ($payment) {
 			$payment->fill($data)->save();
 		} else {
 			UserPayment::create($data);
