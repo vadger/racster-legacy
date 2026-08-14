@@ -64,6 +64,73 @@ class SubscriptionEndService
 
 	}
 
+	/**
+	 * Cancel subscription immediately without any proration.
+	 */
+	public function cancelNowWithoutProration(string $stripeSubId): Subscription
+	{
+		/** @var Subscription $sub */
+		$sub = Subscription::where('stripe_id', $stripeSubId)->firstOrFail();
+
+		$this->stripe->subscriptions->cancel($stripeSubId, [
+			'invoice_now'	=> false,
+			'prorate'		=> false,
+		]);
+
+		$sub->forceFill([
+			'stripe_status'	=> 'canceled',
+			'ends_at'		=> now(),
+		])->save();
+
+		return $sub->refresh();
+	}
+
+	/**
+	 * Cancel failed subscription without proration and void its unpaid invoice.
+	 */
+	public function cancelFailedSubscription(string $stripeSubId): Subscription
+	{
+		/** @var Subscription $sub */
+		$sub = Subscription::where('stripe_id', $stripeSubId)->firstOrFail();
+
+		// Retrieve subscription + latest invoice before cancellation
+		$stripeSub = $this->stripe->subscriptions->retrieve($stripeSubId, [
+			'expand' => ['latest_invoice'],
+		]);
+
+		$latestInvoice = $stripeSub->latest_invoice ?? null;
+
+		// Cancel without creating or applying any prorations
+		$this->stripe->subscriptions->cancel($stripeSubId, [
+			'invoice_now'	=> false,
+			'prorate'		=> false,
+		]);
+
+		// Failed renewal must not remain collectible
+		if (
+			is_object($latestInvoice) &&
+			!empty($latestInvoice->id) &&
+			($latestInvoice->status ?? null) === 'open'
+		) {
+			try {
+				$this->stripe->invoices->voidInvoice($latestInvoice->id);
+			} catch (\Throwable $e) {
+				\Log::channel('stripepayments')->warning('Unable to void failed subscription invoice', [
+					'subscription_id'	=> $stripeSubId,
+					'invoice_id'		=> $latestInvoice->id,
+					'message'			=> $e->getMessage(),
+				]);
+			}
+		}
+
+		$sub->forceFill([
+			'stripe_status'	=> 'canceled',
+			'ends_at'		=> now(),
+		])->save();
+
+		return $sub->refresh();
+	}
+
 	public function setEndAfterFullPaidPeriod(string $stripeSubId, ?Carbon $lastEntryEnd): Subscription
 	{
 		if ($lastEntryEnd === null) {

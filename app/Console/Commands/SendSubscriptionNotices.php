@@ -7,6 +7,7 @@ use Log;
 use App\Models\User;
 use App\Models\UserPayment;
 use App\Models\ScheduledEmail;
+use App\Services\SubscriptionEndService;
 
 use Carbon\Carbon;
 
@@ -165,8 +166,10 @@ class SendSubscriptionNotices extends Command
 
 								try {
 
-									// Cancel failed subscription
-									$sub->cancelNow();
+									// Cancel failed subscription without proration
+									// and void its unpaid renewal invoice
+									app(SubscriptionEndService::class)
+										->cancelFailedSubscription($sub->stripe_id);
 
 									ScheduledEmail::create([
 										'user_id'		=> $user->id,
@@ -220,8 +223,10 @@ class SendSubscriptionNotices extends Command
 
 						try {
 
-							// Cancel failed subscription
-							$sub->cancelNow();
+							// Cancel failed subscription without proration
+							// and void its unpaid renewal invoice
+							app(SubscriptionEndService::class)
+								->cancelFailedSubscription($sub->stripe_id);
 
 							ScheduledEmail::create([
 								'user_id'		=> $user->id,

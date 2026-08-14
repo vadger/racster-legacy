@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use App\Models\ProductPrice;
 use App\Models\User;
 use App\Models\UserPayment;
+use App\Services\SubscriptionEndService;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -486,16 +487,46 @@ class SubscriptionController extends Controller
 	/**
 	 * Admin: cancel subscription immediately
 	 */
-	public function cancelNowAdmin(Request $request, CashierSubscription $subscription)
+	public function cancelNowAdmin(
+		Request $request,
+		CashierSubscription $subscription,
+		SubscriptionEndService $subscriptionEndService
+	)
 	{
 
 		if (Auth::user()->hasRole('admin')){
 
-			$subscription->cancelNow();
+			try {
 
-			return back()->with('message', trans('stripe-products.subscription-cancelled-for-email', ['email' => $subscription->user->email]));
+				$subscriptionEndService->cancelNowWithoutProration(
+					$subscription->stripe_id
+				);
 
-		}else{ return view('nouser'); }
+				return back()->with('message', trans(
+					'stripe-products.subscription-cancelled-for-email',
+					['email' => $subscription->user->email]
+				));
+
+			} catch (\Throwable $e) {
+
+				Log::channel('stripepayments')->error('Subscription immediate cancel failed', [
+					'user_id'			=> $subscription->user_id,
+					'subscription_id'	=> $subscription->stripe_id,
+					'message'			=> $e->getMessage(),
+				]);
+
+				return back()->with('notice', trans(
+					'stripe-products.subscription-immediate-cancel-failed',
+					['email' => $subscription->user->email]
+				));
+
+			}
+
+		}else{
+
+			return view('nouser');
+
+		}
 
 	}
 
