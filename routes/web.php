@@ -149,7 +149,6 @@ Route::group(['prefix' => LaravelLocalization::setLocale()], function(){
 
 		Route::get('/users/{role?}', [ManageUsersController::class, 'showUsers'])->name('users'); // Users view - Show user role management
 			Route::post('/users/{role?}', [ManageUsersController::class, 'showUsers']);
-		Route::get('/users/filter/{role?}', [ManageUsersController::class, 'filterUsers'])->name('filterusers'); // Change filter of users
 		Route::get('/remove-role/{user}/{role}', [ManageUsersController::class, 'removeUserRole'])->name('removerole'); // Remove role from user
 		Route::get('/delete-role/{rid}', [ManageUsersController::class, 'deleteUsersRole'])->name('deleterole'); // Delete role
 

@@ -7,6 +7,64 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## About Racster
+
+Racster is a Laravel 12 application for managing sports training (timetable, coaches, clients, subscriptions and payments).
+
+## Local development
+
+Requirements: PHP 8.2+, Composer, Node.js, Docker.
+
+```bash
+composer install
+npm install
+docker compose up -d        # MySQL on localhost:3307 (racster/racster, db: racster)
+cp .env.example .env        # then set DB_HOST=127.0.0.1, DB_PORT=3307
+php artisan key:generate
+php artisan migrate
+php artisan db:seed         # creates admin@racster.com / secret + demo users
+npm run build
+php artisan serve           # http://localhost:8000
+```
+
+## Deployment / Release
+
+The application is deployed by running the release script **on the server**.
+It pulls the latest state of the `master` branch and performs all release
+steps in the correct order:
+
+```bash
+cd /path/to/racster
+bash scripts/release.sh
+```
+
+What it does, in order:
+
+1. Preflight checks (`.env` and lock files present, `php`/`composer` available)
+2. Enables maintenance mode (disabled again on exit, even on failure)
+3. `git fetch` + fast-forward-only pull of `master` (fails instead of merging if the server copy has diverged)
+4. `composer install --no-dev --optimize-autoloader` — installs exactly what `composer.lock` pins
+5. `npm ci` + `npm run build` — installs exactly what `package-lock.json` pins; **lock files are never modified** by the script, avoiding future merge conflicts
+6. `php artisan migrate --force`
+7. `php artisan storage:link` (if missing)
+8. Clears config/route/view/cache, rebuilds the compiled views
+9. `php artisan queue:restart`
+
+Options:
+
+```bash
+BRANCH=main bash scripts/release.sh   # release a different branch
+SKIP_BUILD=1 bash scripts/release.sh  # skip npm ci / npm run build
+SKIP_MAINTENANCE=1 bash scripts/release.sh
+```
+
+Notes:
+
+- The server needs `php`, `composer` and `npm` in the PATH of the user running the script.
+- Config and route caching are intentionally **not** used: the codebase calls `env()` at runtime (e.g. Stripe keys) and defines closure routes, both of which break with `config:cache` / `route:cache`.
+- If the script is run as root while files are owned by another user, git may refuse to operate ("dubious ownership"). Run the script as the user who owns the project files.
+- Server `.env` is never touched by the script. Make sure it has `APP_ENV=production`, `APP_DEBUG=false` and real credentials.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

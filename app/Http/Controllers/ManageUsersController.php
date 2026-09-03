@@ -7,7 +7,6 @@ use Auth;
 use Hash;
 use Validator;
 use Storage;
-use Session;
 use Lang;
 use Response;
 use LaravelLocalization;
@@ -48,28 +47,6 @@ class ManageUsersController extends Controller
 		];
 
     }
-
-   /**
-     * Change filters
-     *
-     * @return Response
-     */
-	public function filterUsers($filter = null)
-	{
-
-		if (Auth::user()->hasRole('admin')){
-
-			if (!empty($filter)){
-				Session::put('filterUsers', $filter);
-			}else{
-				Session::forget('filterUsers');
-			}
-
-			return Redirect::to('/users');
-
-		}else{ return Redirect::to('/home')->with('notice', trans('racster.no-rights-for-op')); }
-
-	}
 
 	/**
 	* View user credit
@@ -359,10 +336,53 @@ class ManageUsersController extends Controller
 					->whereNotIn('id', config('racster.superadmin'))
 					->whereNull('deleted_at');
 
-				// Add filtering
-				if (Session::has('filterUsers') and !empty(Session::get('filterUsers'))){
+				// Add role filtering (query param, empty = no filter)
+				$role_filter = $request->query('role');
+				if (!empty($role_filter) && ctype_digit((string) $role_filter)){
 					$users_query
-						->whereRaw("find_in_set(".Session::get('filterUsers').", replace(users.user_roles, '|', ',')) > 0");
+						->whereRaw("find_in_set(?, replace(users.user_roles, '|', ',')) > 0", [$role_filter]);
+				}
+
+				// Add name search (exact match unless * wildcard is used, matches any of the name fields)
+				$name_search = trim((string) $request->query('name'));
+				if ($name_search !== ''){
+					if (str_contains($name_search, '*')){
+						$like = $this->wildcardTerm($name_search);
+						$users_query
+							->where(function ($query) use ($like){
+								$query
+									->where('first_name', 'LIKE', $like)
+									->orWhere('last_name', 'LIKE', $like)
+									->orWhere('name', 'LIKE', $like);
+							});
+					}else{
+						$users_query
+							->where(function ($query) use ($name_search){
+								$query
+									->where('first_name', $name_search)
+									->orWhere('last_name', $name_search)
+									->orWhere('name', $name_search);
+							});
+					}
+				}
+
+				// Add email search (exact match unless * wildcard is used)
+				$email_search = trim((string) $request->query('email'));
+				if ($email_search !== ''){
+					if (str_contains($email_search, '*')){
+						$users_query
+							->where('email', 'LIKE', $this->wildcardTerm($email_search));
+					}else{
+						$users_query
+							->where('email', $email_search);
+					}
+				}
+
+				// Add phone search (LIKE with * wildcard, dial code and number combined)
+				$phone_search = trim((string) $request->query('phone'));
+				if ($phone_search !== ''){
+					$users_query
+						->whereRaw("CONCAT(users.mobile_country_code, users.mobile_number) LIKE ? ESCAPE '\\\\'", [$this->likeTerm($phone_search)]);
 				}
 
 				// Add ordering
@@ -370,13 +390,19 @@ class ManageUsersController extends Controller
 					->orderBy('first_name', 'asc')
 					->orderBy('name', 'asc');
 
-				// Get users list
-				$users = $users_query->paginate($this->perpage);
+				// Get users list (keep search filters on pagination links)
+				$users = $users_query->paginate($this->perpage)->appends($request->query());
 
 			return view('users', [
 				'urows' => (!empty($users) ? $users : ''),
 				'roles' => (!empty($role_rows) ? $role_rows : ''),
-				'cngrole' => (!empty($role) ? $role : '')
+				'cngrole' => (!empty($role) ? $role : ''),
+				'filters' => [
+					'name'	=> $name_search,
+					'email'	=> $email_search,
+					'phone'	=> $phone_search,
+					'role'	=> $role_filter,
+				],
 			]);
 
 		}else{
@@ -385,6 +411,30 @@ class ManageUsersController extends Controller
 				->with('notice', trans('racster.no-rights-for-op'));
 
 		}
+
+	}
+
+	/**
+	 * Prepare search term for SQL LIKE: escape \, % and _ so they are matched
+	 * literally, then convert user wildcard * to SQL wildcard %. No % wrapping
+	 * is added - partial matching requires explicit * in the term
+	 */
+	private function wildcardTerm($term)
+	{
+
+		return str_replace('*', '%', addcslashes($term, '\\%_'));
+
+	}
+
+	/**
+	 * Prepare search term for partial SQL LIKE: escape \, % and _, convert
+	 * user wildcard * to SQL wildcard % and wrap the term with % so it
+	 * matches anywhere within the value
+	 */
+	private function likeTerm($term)
+	{
+
+		return '%'.$this->wildcardTerm($term).'%';
 
 	}
 

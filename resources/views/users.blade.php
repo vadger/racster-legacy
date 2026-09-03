@@ -11,6 +11,46 @@
 				@if(Session::has('notice')) <div class="alert alert-danger text-center"> {!! Session::get('notice') !!} </div> @endif
 				@if(Session::has('message')) <div class="alert alert-success text-center"> {!! Session::get('message') !!} </div> @endif
 
+				<!-- Search filters (stateless, GET) -->
+				<form class="form-horizontal" role="form" method="GET" action="{{ LaravelLocalization::localizeUrl('/users') }}" id="users-search-form">
+					<div class="card shadow rounded mb-3">
+						<div class="card-body" id="userssearch">
+							<div class="row g-2 align-items-center">
+								<div class="col-lg-3 col-md-6 col-12">
+									<input class="form-control form-control-sm" type="text" name="name" id="search_name" value="{{ $filters['name'] }}" autocomplete="off" placeholder="@lang('racster.search-by-name')" />
+								</div>
+								<div class="col-lg-3 col-md-6 col-12">
+									<input class="form-control form-control-sm" type="text" name="email" id="search_email" value="{{ $filters['email'] }}" autocomplete="off" placeholder="@lang('racster.search-by-email')" />
+								</div>
+								<div class="col-lg-2 col-md-6 col-12">
+									<input class="form-control form-control-sm" type="text" name="phone" id="search_phone" value="{{ $filters['phone'] }}" autocomplete="off" placeholder="@lang('racster.search-by-phone')" />
+								</div>
+								<div class="col-lg-2 col-md-6 col-12">
+									<select class="form-select form-select-sm" name="role" id="search_role">
+										<option value="">@lang('racster.search-all-roles')</option>
+@if (!empty($roles))
+@foreach ($roles as $rkey => $rname)
+										<option value="{{ $rkey }}" @if ((string) $filters['role'] === (string) $rkey) selected @endif>{{ ucfirst($rname) }}</option>
+@endforeach
+@endif
+									</select>
+								</div>
+								<div class="col-lg-2 col-md-12 col-12">
+									<div class="input-group input-group-sm">
+										<button type="submit" class="btn btn-primary">@lang('racster.search')</button>
+										<a href="{{ LaravelLocalization::localizeUrl('/users') }}" class="btn btn-secondary">@lang('racster.reset')</a>
+									</div>
+								</div>
+							</div>
+							<div class="row mt-1">
+								<div class="col-12">
+									<span class="small text-secondary">@lang('racster.search-wildcard-hint')</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+
 				<form class="form-horizontal" role="form" method="POST" action="{{ LaravelLocalization::localizeUrl('/users'.((!empty($cngrole) && !empty($roles[$cngrole])) ? '/'.$cngrole : '')) }}">
 					{{ csrf_field() }}
 
@@ -29,43 +69,6 @@
 											@if (!empty($cngrole) && !empty($roles[$cngrole])) @lang('racster.change') @else @lang('racster.add-new') @endif
 										</button>
 									</div>
-								</div>
-							</div>
-@endif
-@if (!empty($roles))
-							<div class="row mb-2">
-								<div class="col-lg-12">
-									<ul class="list-group list-group-horizontal flex-wrap" id="rolelist">
-										<li class="list-group-item list-group-item-secondary mb-md-0 mb-1 px-2 py-1">
-											<strong>@lang('racster.select'):</strong>
-										</li>
-@foreach ($roles as $rkey => $role)
-										<li class="list-group-item list-group-item-action list-group-item-primary mb-md-0 mb-1 px-2 py-1 w-auto border-1" id="roletype-{{ $rkey }}" role="button">
-											{{ ucfirst($role) }}
-@if (!empty(config('racster.lockroles')) && !in_array($rkey, config('racster.lockroles')))
-											<a href="{{ LaravelLocalization::localizeUrl('/users/'.$rkey) }}"><i class="fas fa-pen-square"></i></a>
-											<a href="{{ LaravelLocalization::localizeUrl('/delete-role/'.$rkey) }}" class="delete-role"><i class="fas fa-trash-alt"></i></a>
-@endif
-											<a href="/users/filter/{{ $rkey }}">
-@if (Session::has('filterUsers') && Session::get('filterUsers') == $rkey)
-												<i class="fas fa-filter text-sucess"></i>
-@else
-												<i class="fas fa-filter text-secondary"></i>
-@endif
-											</a>
-										</li>
-@endforeach
-										<li class="list-group-item list-group-item-action list-group-item-secondary mb-md-0 mb-1 px-2 py-1 w-auto border-1" id="roletype-0" role="button">
-											@lang('racster.none')
-											<a href="/users/filter/0">
-@if (!Session::has('filterUsers') || empty(Session::get('filterUsers')))
-												<i class="fas fa-filter text-sucess"></i>
-@else
-												<i class="fas fa-filter text-secondary"></i>
-@endif
-											</a>
-										</li>
-									</ul>
 								</div>
 							</div>
 @endif
@@ -185,12 +188,6 @@
 		$(document).ready(function (){
 			$('.alert-danger').delay(5000).fadeOut('slow');
 			$('.alert-success').not('.collapse').delay(3000).fadeOut('slow');
-		});
-		$(document).on("click", "#rolelist li:not(:first-child)", function(){
-			$("#userlist input[type=checkbox]").prop("checked", false);
-			if (this.id.replace("roletype-", "") != 0){
-				$(".urole" + this.id.replace("roletype-", "") + " input[type=checkbox]").prop("checked", true);
-			}
 		});
 		$('#delaction, a.remove-role, a.delete-role').on('click', function (e) {
 			if (confirm(($(this).attr('id') ? "@lang('racster.sure-to-delete-users')" : "@lang('racster.sure-to-remove-user-role')"))) {
