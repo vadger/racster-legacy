@@ -181,15 +181,12 @@
 					} else if (e.limfuture === true){
 						modal.find('.modal-footer a[data-attend]').parent().prepend('<small class="text-secondary">@lang('racster.prebooking-is-limited-by')</small>');
 						modal.find('.modal-footer a[data-attend]').addClass('disabled').prop('disabled', true).hide();
-					} else if ((e.limit-e.used) < 1 || e.pastentry === true || e.available === false){
-						if ((e.pastentry === true && e.available === false) || (e.pastentry === false && e.available === false)){
-							modal.find('.modal-footer a[data-attend]').parent().prepend('<small class="text-secondary">@lang('racster.min-participation-time-has-passed')</small>');
-						}
-						if (e.available === true && e.started === false){
-							modal.find('.modal-footer a[data-attend]').addClass('btn-info').text('@lang('racster.pay-for-onetime')');
-						}else{
-							modal.find('.modal-footer a[data-attend]').addClass('disabled').prop('disabled', true).hide();
-						}
+					} else if ((e.limit-e.used) < 1){
+						modal.find('.modal-footer a[data-attend]').parent().prepend('<small class="text-secondary">@lang('racster.no-access-due-to-participant-limit-exceeded')</small>');
+						modal.find('.modal-footer a[data-attend]').addClass('disabled').prop('disabled', true).hide();
+					} else if (e.available === false || e.started === true){
+						modal.find('.modal-footer a[data-attend]').parent().prepend('<small class="text-secondary">@lang('racster.min-participation-time-has-passed')</small>');
+						modal.find('.modal-footer a[data-attend]').addClass('disabled').prop('disabled', true).hide();
 					} else {
 						if (e.okcredit === false){
 							modal.find('.modal-footer a[data-attend]').addClass('btn-info').text('@lang('racster.pay-for-onetime')');

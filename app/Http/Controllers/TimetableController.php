@@ -295,6 +295,35 @@ class TimetableController extends Controller
 
 				}else{
 
+					// Check participation deadline when attending
+					if (empty($cid)){
+
+						$entry_data = DB::table('racster_entries')
+							->where('id', $entry_date->entry_id)
+							->whereNull('deleted_at')
+							->first();
+
+						if (!empty($entry_data)){
+
+							$attending_min_period = DB::table('racster_assets')
+								->where('type', 'entry-minperiod')
+								->where('parent', $entry_data->entry_type)
+								->whereNull('deleted_at')
+								->value('title');
+
+							$attendance_cutoff = strtotime('-'.(!empty($attending_min_period) ? (int)$attending_min_period : config('racster.attending-min-period')).' minutes', strtotime($entry_date->entry_start));
+
+							if ($attendance_cutoff < $this->thistime or strtotime($entry_date->entry_start) <= $this->thistime){
+								return response()->json([
+									'success' => false,
+									'msg' => trans('racster.min-participation-time-has-passed'),
+								]);
+							}
+
+						}
+
+					}
+
 					// Define entry price
 					$entry_price = (!empty($entry_date->entry_price) ? $entry_date->entry_price : 0);
 

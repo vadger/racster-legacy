@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+racster-live-data
+/tests/e2e/.e2e-dates.json
+/test-results
+/playwright-report
